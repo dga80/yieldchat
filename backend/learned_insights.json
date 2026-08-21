@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "categoria": "CANAL_NUEVO",
+    "regla": "Canal en desarrollo: 'Mente Kaizen'. Temática: Sabiduría y Filosofía Japonesa (Kaizen, Mottainai, Kakeibo, Bushido) cruzada con Dinero, Riqueza Silenciosa y Salarios Bajos.",
+    "created_at": "2026-08-21T15:57:43.727025+00:00"
+  },
+  {
+    "id": 2,
+    "categoria": "FORMATO_GUION",
+    "regla": "Duración de vídeo ideal: 22 a 26 minutos. Longitud de guion: 2.000 a 2.300 palabras (media de 2.263 palabras). Ritmo de voz pausado: 95-100 palabras por minuto con silencios meditativos.",
+    "created_at": "2026-08-21T15:57:43.727289+00:00"
+  },
+  {
+    "id": 3,
+    "categoria": "MINIATURAS",
+    "regla": "Estilo visual: Ilustración anime nostálgica estilo Studio Ghibli / Makoto Shinkai. Personaje humilde a la derecha, espacio despejado a la izquierda. Texto de 2 líneas (Línea 1 blanco, Línea 2 amarillo #FFD700) fiel a las palabras del título.",
+    "created_at": "2026-08-21T15:57:43.727291+00:00"
+  },
+  {
+    "id": 4,
+    "categoria": "EDICION_VIDEO",
+    "regla": "No usar animación total de vídeo con IA. Usar 100-130 imágenes estáticas de alta calidad (1 cada 10-12s) con zoom suave Ken Burns + capa de partículas de polvo zen + subtítulos palabra por palabra.",
+    "created_at": "2026-08-21T15:57:43.727292+00:00"
+  },
+  {
+    "id": 5,
+    "categoria": "AUDIENCIA",
+    "regla": "El 80% del éxito en este nicho es el Audio (guion narrativo + voz madura/cálida de ElevenLabs). Más del 60% de los usuarios escuchan el vídeo mientras descansan o duermen.",
+    "created_at": "2026-08-21T15:57:43.727294+00:00"
+  }
+]

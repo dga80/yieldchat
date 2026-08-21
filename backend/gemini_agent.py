@@ -1,5 +1,5 @@
 """
-Gemini Flash Agent with Auto-Update, Tool Calling and Long-Term Memory
+Gemini Flash Agent with Auto-Update, Tool Calling, Multi-Model Fallback and Long-Term Memory
 """
 
 import os
@@ -15,6 +15,15 @@ load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 
+FLASH_CANDIDATES = [
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-lite-latest"
+]
+
 def _configure_gemini():
     if not API_KEY or API_KEY == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY no está configurada en .env")
@@ -22,25 +31,10 @@ def _configure_gemini():
 
 
 def get_active_model_name() -> str:
-    """
-    Descubre dinámicamente el modelo Gemini Flash más reciente disponible.
-    Prioridad: GEMINI_MODEL env var -> gemini-3.7-flash -> gemini-2.5-flash -> gemini-flash-latest
-    """
     env_model = os.getenv("GEMINI_MODEL")
     if env_model:
         return env_model
-        
-    _configure_gemini()
-    try:
-        models = [m.name.replace("models/", "") for m in genai.list_models() if "generateContent" in m.supported_generation_methods]
-        # Priorizar versiones más recientes de flash
-        for preferred in ["gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
-            if any(preferred in m for m in models):
-                return preferred
-    except Exception as e:
-        print(f"[GeminiAgent] Error listing models: {e}")
-        
-    return "gemini-flash-latest"
+    return "gemini-3.6-flash"
 
 
 # ── Herramientas declaradas para Gemini ───────────────────────────────────────
@@ -92,7 +86,7 @@ def build_system_instruction() -> str:
     learned_memory = memory_manager.format_memory_for_system_prompt()
     
     return f"""Eres YieldChat, un Consultor y Estratega de Élite en Crecimiento de Canales de YouTube Faceless (Automatización de YouTube).
-Tu objetivo es ayudar al usuario a descubrir nichos de océano azul, auditar canales competidores con métricas reales, analizar outliers por velocidad de vistas/día, diseñar guiones de alta retención y generar prompts de imágenes y miniaturas de máxima conversión.
+Tu objetivo es ayudar al usuario a descubrir nichos de océano azul, auditar canales competidores con métricas reales, analizar outliers por velocidad de vistas/día, diseñar guiones de alta retención, sugerir configuraciones de voz (TTS/ElevenLabs/Qwen) y generar prompts de imágenes y miniaturas de máxima conversión.
 
 Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 1. `herramienta_analizar_canal`: Para obtener radiografías completas de cualquier canal.
@@ -105,6 +99,7 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 - Sé directo, analítico, estructurado y sin rodeos innecesarios.
 - Usa tablas de Markdown para resumir métricas de vídeos y comparativas.
 - Cuando sugieras miniaturas, indica siempre la composición, el prompt de IA para Midjourney/Flux y el texto exacto (Línea 1 en blanco / Línea 2 en amarillo).
+- Cuando el usuario te pregunte por configuraciones técnicas (como voces TTS, prompts, o pacing de guiones), proporciona la configuración exacta lista para copiar y pegar.
 - Cuando el usuario te pida investigar un canal o nicho, usa proactivamente tus herramientas para obtener datos 100% verídicos de YouTube antes de responder.
 
 {learned_memory}
@@ -113,10 +108,9 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 
 async def stream_agent_chat(session_id: str, user_message: str) -> AsyncGenerator[Dict[str, Any], None]:
     """
-    Ejecuta el ciclo conversacional de Gemini con herramientas y emite eventos en streaming.
+    Ejecuta el ciclo conversacional de Gemini con herramientas, fallback inteligente de modelos y streaming.
     """
     _configure_gemini()
-    model_name = get_active_model_name()
     
     # 1. Recuperar historial de mensajes de la sesión
     session_data = memory_manager.get_session(session_id)
@@ -133,23 +127,48 @@ async def stream_agent_chat(session_id: str, user_message: str) -> AsyncGenerato
             "role": role,
             "parts": [msg["content"]]
         })
-        
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=build_system_instruction(),
-        tools=AVAILABLE_TOOLS,
-        generation_config=genai.GenerationConfig(temperature=0.7)
-    )
+
+    # Lista de modelos con fallback automático
+    env_model = os.getenv("GEMINI_MODEL")
+    candidate_models = [env_model] if env_model else FLASH_CANDIDATES
     
-    chat = model.start_chat(history=formatted_history)
-    
-    # Notificar inicio de respuesta
-    yield {"type": "model_info", "model": model_name}
+    chat = None
+    selected_model_name = None
+    response = None
+
+    for model_name in candidate_models:
+        try:
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=build_system_instruction(),
+                tools=AVAILABLE_TOOLS,
+                generation_config=genai.GenerationConfig(temperature=0.7)
+            )
+            chat = model.start_chat(history=formatted_history)
+            response = chat.send_message(user_message)
+            selected_model_name = model_name
+            break
+        except Exception as e:
+            err_str = str(e).lower()
+            print(f"[GeminiAgent] Fallback from {model_name}: {e}")
+            if "quota" in err_str or "429" in err_str or "not found" in err_str or "404" in err_str:
+                continue
+            else:
+                # Error fatal
+                raise e
+
+    if not chat or not response:
+        err_msg = "Todos los modelos de Gemini alcanzaron su cuota de peticiones. Por favor, espera 1 minuto o revisa tu cuota en Google AI Studio."
+        memory_manager.add_message(session_id, "assistant", err_msg)
+        yield {"type": "content", "content": err_msg}
+        yield {"type": "done"}
+        return
+
+    # Notificar modelo activo utilizado
+    yield {"type": "model_info", "model": selected_model_name}
     
     # Bucle de llamadas a herramientas y respuesta final
     tool_calls_executed = []
-    response = chat.send_message(user_message)
-    
     max_tool_iterations = 6
     iterations = 0
     
@@ -203,7 +222,7 @@ async def stream_agent_chat(session_id: str, user_message: str) -> AsyncGenerato
             )
         )
 
-    # Fallback si alcanzó el límite de herramientas
+    # Fallback si alcanzó el límite de iteraciones de herramientas
     final_text = response.text if hasattr(response, "text") else "Análisis completado."
     memory_manager.add_message(session_id, "assistant", final_text, tool_calls=tool_calls_executed)
     yield {"type": "content", "content": final_text}

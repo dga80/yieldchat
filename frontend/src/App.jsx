@@ -169,7 +169,9 @@ export default function App() {
             try {
               const event = JSON.parse(line.replace('data: ', '').trim())
 
-              if (event.type === 'tool_start') {
+              if (event.type === 'model_info') {
+                setStatus(prev => ({ ...prev, active_gemini_model: event.model }))
+              } else if (event.type === 'tool_start') {
                 const toolNamePretty = event.tool.replace('herramienta_', '').replaceAll('_', ' ')
                 setCurrentTool(toolNamePretty)
               } else if (event.type === 'tool_done') {
@@ -180,6 +182,8 @@ export default function App() {
               } else if (event.type === 'done') {
                 setCurrentTool(null)
               } else if (event.type === 'error') {
+                fullAssistantContent = `⚠️ **Aviso del Agente:** ${event.message || 'Error en la respuesta'}`
+                setStreamingMessage(fullAssistantContent)
                 toast.error(event.message || 'Error en la respuesta del agente')
               }
             } catch (err) {

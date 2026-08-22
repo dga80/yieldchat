@@ -1,5 +1,5 @@
 """
-Gemini Flash Agent with Auto-Update, Tool Calling, Multi-Model Fallback and Long-Term Memory
+Gemini Flash Agent with Auto-Update, Native Tool Calling, Multi-Model Fallback and Long-Term Memory
 """
 
 import os
@@ -39,30 +39,26 @@ def get_active_model_name() -> str:
 
 # ── Herramientas declaradas para Gemini ───────────────────────────────────────
 
-def herramienta_analizar_canal(handle_o_nombre: str) -> str:
-    """Obtiene datos, suscriptores, vistas totales, fecha de creación y descripción de un canal."""
-    res = youtube_tools.analizar_canal(handle_o_nombre)
-    return json.dumps(res, ensure_ascii=False)
+def herramienta_analizar_canal(handle_o_nombre: str) -> dict:
+    """Obtiene datos, suscriptores, vistas totales, fecha de creación y descripción de un canal de YouTube."""
+    return youtube_tools.analizar_canal(handle_o_nombre)
 
-def herramienta_analizar_videos_velocidad(canal_identificador: str, max_videos: int = 25) -> str:
+def herramienta_analizar_videos_velocidad(canal_identificador: str, max_videos: int = 25) -> dict:
     """Analiza los vídeos de un canal calculando velocidad de vistas por día y Viral Ratio para encontrar los mejores Outliers."""
-    res = youtube_tools.analizar_videos_velocidad(canal_identificador, max_videos)
-    return json.dumps(res, ensure_ascii=False)
+    return youtube_tools.analizar_videos_velocidad(canal_identificador, max_videos)
 
-def herramienta_obtener_transcripcion(video_id: str) -> str:
+def herramienta_obtener_transcripcion(video_id: str) -> dict:
     """Obtiene la transcripción, el conteo total de palabras y la velocidad de locución (palabras/minuto) de un vídeo."""
-    res = youtube_tools.obtener_transcripcion(video_id)
-    return json.dumps(res, ensure_ascii=False)
+    return youtube_tools.obtener_transcripcion(video_id)
 
-def herramienta_buscar_competencia_espanol(termino: str) -> str:
+def herramienta_buscar_competencia_espanol(termino: str) -> dict:
     """Busca vídeos y canales existentes en español para una temática o título dado para verificar competencia o brecha de mercado."""
-    res = youtube_tools.buscar_competencia_espanol(termino)
-    return json.dumps(res, ensure_ascii=False)
+    return youtube_tools.buscar_competencia_espanol(termino)
 
-def herramienta_guardar_aprendizaje_en_memoria(categoria: str, regla_o_preferencia: str) -> str:
+def herramienta_guardar_aprendizaje_en_memoria(categoria: str, regla_o_preferencia: str) -> dict:
     """Guarda un aprendizaje o regla permanente en la memoria a largo plazo del agente."""
     res = memory_manager.add_insight(categoria, regla_o_preferencia)
-    return json.dumps({"status": "guardado", "insight": res}, ensure_ascii=False)
+    return {"status": "guardado", "insight": res}
 
 
 AVAILABLE_TOOLS = [
@@ -72,14 +68,6 @@ AVAILABLE_TOOLS = [
     herramienta_buscar_competencia_espanol,
     herramienta_guardar_aprendizaje_en_memoria
 ]
-
-TOOL_DISPATCH = {
-    "herramienta_analizar_canal": herramienta_analizar_canal,
-    "herramienta_analizar_videos_velocidad": herramienta_analizar_videos_velocidad,
-    "herramienta_obtener_transcripcion": herramienta_obtener_transcripcion,
-    "herramienta_buscar_competencia_espanol": herramienta_buscar_competencia_espanol,
-    "herramienta_guardar_aprendizaje_en_memoria": herramienta_guardar_aprendizaje_en_memoria
-}
 
 
 def build_system_instruction() -> str:
@@ -99,7 +87,7 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 - Sé directo, analítico, estructurado y sin rodeos innecesarios.
 - Usa tablas de Markdown para resumir métricas de vídeos y comparativas.
 - Cuando sugieras miniaturas, indica siempre la composición, el prompt de IA para Midjourney/Flux y el texto exacto (Línea 1 en blanco / Línea 2 en amarillo).
-- Cuando el usuario te pregunte por configuraciones técnicas (como voces TTS, prompts, o pacing de guiones), proporciona la configuración exacta lista para copiar y pegar.
+- Cuando el usuario te pregunte por estrategias de Shorts, NotebookLM o ganchos para dormir/insomnio, proporciona guiones y ángulos psicológicos de retención listos para usar.
 - Cuando el usuario te pida investigar un canal o nicho, usa proactivamente tus herramientas para obtener datos 100% verídicos de YouTube antes de responder.
 
 {learned_memory}
@@ -108,7 +96,7 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 
 async def stream_agent_chat(session_id: str, user_message: str) -> AsyncGenerator[Dict[str, Any], None]:
     """
-    Ejecuta el ciclo conversacional de Gemini con herramientas, fallback inteligente de modelos y streaming.
+    Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas, fallback inteligente y streaming.
     """
     _configure_gemini()
     
@@ -144,7 +132,8 @@ async def stream_agent_chat(session_id: str, user_message: str) -> AsyncGenerato
                 tools=AVAILABLE_TOOLS,
                 generation_config=genai.GenerationConfig(temperature=0.7)
             )
-            chat = model.start_chat(history=formatted_history)
+            # Habilitar function calling automático nativo
+            chat = model.start_chat(history=formatted_history, enable_automatic_function_calling=True)
             response = chat.send_message(user_message)
             selected_model_name = model_name
             break
@@ -167,63 +156,8 @@ async def stream_agent_chat(session_id: str, user_message: str) -> AsyncGenerato
     # Notificar modelo activo utilizado
     yield {"type": "model_info", "model": selected_model_name}
     
-    # Bucle de llamadas a herramientas y respuesta final
-    tool_calls_executed = []
-    max_tool_iterations = 6
-    iterations = 0
-    
-    while iterations < max_tool_iterations:
-        iterations += 1
-        
-        # Comprobar si Gemini quiere ejecutar una herramienta
-        function_calls = []
-        for part in response.candidates[0].content.parts:
-            if fn := getattr(part, "function_call", None):
-                function_calls.append(fn)
-                
-        if not function_calls:
-            # Respuesta final lista
-            final_text = response.text
-            memory_manager.add_message(session_id, "assistant", final_text, tool_calls=tool_calls_executed)
-            yield {"type": "content", "content": final_text}
-            yield {"type": "done"}
-            return
-            
-        # Ejecutar cada herramienta solicitada
-        tool_responses = {}
-        for fn in function_calls:
-            fn_name = fn.name
-            fn_args = dict(fn.args)
-            
-            yield {"type": "tool_start", "tool": fn_name, "args": fn_args}
-            tool_calls_executed.append({"tool": fn_name, "args": fn_args})
-            
-            tool_func = TOOL_DISPATCH.get(fn_name)
-            if tool_func:
-                try:
-                    tool_res_str = tool_func(**fn_args)
-                except Exception as e:
-                    tool_res_str = json.dumps({"error": str(e)})
-            else:
-                tool_res_str = json.dumps({"error": f"Herramienta {fn_name} no encontrada"})
-                
-            yield {"type": "tool_done", "tool": fn_name}
-            tool_responses[fn_name] = tool_res_str
-            
-        # Enviar resultado de herramientas a Gemini
-        response = chat.send_message(
-            genai.protos.Content(
-                parts=[
-                    genai.protos.Part.from_function_response(
-                        name=name,
-                        response={"result": res}
-                    ) for name, res in tool_responses.items()
-                ]
-            )
-        )
-
-    # Fallback si alcanzó el límite de iteraciones de herramientas
+    # Enviar respuesta final
     final_text = response.text if hasattr(response, "text") else "Análisis completado."
-    memory_manager.add_message(session_id, "assistant", final_text, tool_calls=tool_calls_executed)
+    memory_manager.add_message(session_id, "assistant", final_text)
     yield {"type": "content", "content": final_text}
     yield {"type": "done"}

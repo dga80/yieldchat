@@ -114,12 +114,12 @@ export default function ChatArea({
       {/* Messages List */}
       <div className="messages-container">
         {displayMessages.length === 0 ? (
-          <div style={{ textAlign: 'center', margin: 'auto', maxWidth: '480px', color: 'var(--text-muted)' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
-              <Bot size={24} />
+          <div className="empty-state-wrapper">
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', boxShadow: '0 0 16px var(--gold-glow)' }}>
+              <Bot size={26} />
             </div>
-            <h2 style={{ fontSize: '1.2rem', color: '#fff', marginBottom: 8 }}>¿En qué canal o nicho trabajamos hoy?</h2>
-            <p style={{ fontSize: '13.5px', lineHeight: 1.5 }}>
+            <h2 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: 8, fontWeight: 700 }}>¿En qué canal o nicho trabajamos hoy?</h2>
+            <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-muted)' }}>
               Puedo auditar canales de YouTube en tiempo real, calcular la velocidad de vistas por día, extraer transcripciones de guiones o redactar prompts de miniaturas.
             </p>
           </div>

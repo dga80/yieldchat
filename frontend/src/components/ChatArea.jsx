@@ -129,11 +129,24 @@ export default function ChatArea({
           ))
         )}
 
-        {/* Live Tool Execution Status */}
-        {currentTool && (
-          <div className="tool-banner">
-            <div className="spinner" />
-            <span>Ejecutando herramienta: {currentTool}...</span>
+        {/* Thinking / Tool Execution Indicator */}
+        {loading && !streamingMessage && (
+          <div className="message-row">
+            <div className="message-avatar avatar-agent pulse-avatar">
+              <Bot size={18} />
+            </div>
+            <div className="message-body">
+              <div className="thinking-bubble">
+                <div className="typing-dots">
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
+                <span className="thinking-text">
+                  {currentTool ? `Consultando ${currentTool}...` : 'YieldChat está analizando y redactando...'}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -174,7 +187,7 @@ export default function ChatArea({
               onClick={handleSend}
               disabled={!input.trim() || loading}
             >
-              <Send size={15} />
+              {loading ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#000' }} /> : <Send size={15} />}
             </button>
           </div>
         </div>

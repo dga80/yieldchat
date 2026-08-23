@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, Activity, Bot } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip } from 'lucide-react'
 import MessageItem from './MessageItem'
 
 const QUICK_PROMPTS = [
+  'Generar una miniatura de alto CTR sobre hábitos de riqueza',
+  'Aprende el estilo de esta imagen de referencia y guárdalo',
   'Analizar el canal @TheWillWisdom y sus mejores outliers',
-  '¿Cuántas palabras tienen los guiones de @CosmoExplainsYT?',
-  'Generar 5 prompts de miniaturas estilo Ghibli para Mente Kaizen',
-  'Buscar canales similares de religión y sueño en español'
+  'Generar un fondo vertical para un YouTube Short'
 ]
 
 export default function ChatArea({
@@ -19,10 +19,12 @@ export default function ChatArea({
   onUpdateTitle
 }) {
   const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState([]) // [{ id, data, name }]
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleText, setTitleText] = useState('')
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (session) {
@@ -45,10 +47,47 @@ export default function ChatArea({
     }
   }
 
+  const handleFiles = (files) => {
+    if (!files || files.length === 0) return
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) return
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setAttachments(prev => [
+          ...prev,
+          { id: Math.random().toString(36).substring(7), data: e.target.result, name: file.name }
+        ])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageFiles = []
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile()
+        if (file) imageFiles.push(file)
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault()
+      handleFiles(imageFiles)
+    }
+  }
+
+  const removeAttachment = (id) => {
+    setAttachments(prev => prev.filter(a => a.id !== id))
+  }
+
   const handleSend = () => {
-    if (!input.trim() || loading) return
-    onSendMessage(input.trim())
+    if ((!input.trim() && attachments.length === 0) || loading) return
+    const imagesPayload = attachments.map(a => a.data)
+    onSendMessage(input.trim(), imagesPayload)
     setInput('')
+    setAttachments([])
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
@@ -118,9 +157,9 @@ export default function ChatArea({
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', boxShadow: '0 0 16px var(--gold-glow)' }}>
               <Bot size={26} />
             </div>
-            <h2 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: 8, fontWeight: 700 }}>¿En qué canal o nicho trabajamos hoy?</h2>
+            <h2 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: 8, fontWeight: 700 }}>¿En qué canal o estrategia trabajamos hoy?</h2>
             <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-muted)' }}>
-              Puedo auditar canales de YouTube en tiempo real, calcular la velocidad de vistas por día, extraer transcripciones de guiones o redactar prompts de miniaturas.
+              Puedo auditar canales, generar miniaturas en alta definición con IA, aprender estilos visuales de tus imágenes de referencia y redactar guiones optimizados.
             </p>
           </div>
         ) : (
@@ -143,7 +182,7 @@ export default function ChatArea({
                   <span className="dot" />
                 </div>
                 <span className="thinking-text">
-                  {currentTool ? `Consultando ${currentTool}...` : 'YieldChat está analizando y redactando...'}
+                  {currentTool ? `Ejecutando ${currentTool}...` : 'YieldChat está procesando y creando...'}
                 </span>
               </div>
             </div>
@@ -161,7 +200,7 @@ export default function ChatArea({
               <button
                 key={i}
                 className="quick-pill"
-                onClick={() => onSendMessage(prompt)}
+                onClick={() => onSendMessage(prompt, [])}
               >
                 {prompt}
               </button>
@@ -170,25 +209,68 @@ export default function ChatArea({
         )}
 
         <div className="chat-input-box">
+          {/* Attached Images Preview */}
+          {attachments.length > 0 && (
+            <div className="attachment-preview-bar">
+              {attachments.map(att => (
+                <div key={att.id} className="attachment-chip">
+                  <img src={att.data} alt="Referencia" className="attachment-thumb" />
+                  <span className="attachment-name">{att.name}</span>
+                  <button 
+                    className="remove-attachment-btn" 
+                    onClick={() => removeAttachment(att.id)}
+                    title="Quitar imagen"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <textarea
             ref={textareaRef}
             className="chat-textarea"
-            placeholder="Pregunta sobre cualquier canal, pide guiones, estadísticas o prompts..."
+            placeholder="Escribe tu consulta o arrastra/pega imágenes de referencia..."
             value={input}
             onChange={handleInputResize}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             rows={1}
             disabled={loading}
           />
+
           <div className="chat-input-footer">
-            <span className="input-hint">Presiona Enter para enviar, Shift+Enter para nueva línea</span>
-            <button
-              className="send-btn"
-              onClick={handleSend}
-              disabled={!input.trim() || loading}
-            >
-              {loading ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#000' }} /> : <Send size={15} />}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                multiple
+                accept="image/*"
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <button
+                type="button"
+                className="attach-btn"
+                onClick={() => fileInputRef.current?.click()}
+                title="Adjuntar imagen de referencia para que el agente aprenda o se inspire"
+              >
+                <ImagePlus size={16} />
+                <span>Adjuntar Referencia</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="input-hint">Enter para enviar</span>
+              <button
+                className="send-btn"
+                onClick={handleSend}
+                disabled={(!input.trim() && attachments.length === 0) || loading}
+              >
+                {loading ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#000' }} /> : <Send size={15} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

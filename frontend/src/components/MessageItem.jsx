@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Copy, Check, Bot, User } from 'lucide-react'
+import { Copy, Check, Bot, User, Download, ExternalLink, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function MessageItem({ message }) {
@@ -15,12 +15,31 @@ export default function MessageItem({ message }) {
 
       <div className="message-body">
         {isUser ? (
-          <div className="message-user-content">{message.content}</div>
+          <div className="message-user-content">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                img({ node, src, alt, ...props }) {
+                  return (
+                    <div className="user-attached-image-wrapper">
+                      <img src={src} alt={alt || 'Referencia visual'} className="user-attached-img" />
+                      <span className="user-attached-tag">Referencia visual adjunta</span>
+                    </div>
+                  )
+                }
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
         ) : (
           <div className="message-agent-content">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
+                img({ node, src, alt, ...props }) {
+                  return <ImageCard src={src} alt={alt} />
+                },
                 code({ node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
                   const codeText = String(children).replace(/\n$/, '')
@@ -56,6 +75,61 @@ export default function MessageItem({ message }) {
             </ReactMarkdown>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function ImageCard({ src, alt }) {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      const response = await fetch(src)
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = `yieldchat_${Date.now()}.jpg`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+      toast.success('Imagen descargada en HD')
+    } catch (e) {
+      window.open(src, '_blank')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(src)
+    toast.success('Enlace de imagen copiado')
+  }
+
+  return (
+    <div className="generated-image-card">
+      <div className="image-card-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Sparkles size={14} style={{ color: 'var(--gold)' }} />
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+            {alt || 'Ilustración / Miniatura IA (Nano Banana / Flux)'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button className="image-action-btn" onClick={handleDownload} title="Descargar imagen en alta calidad">
+            <Download size={13} />
+            <span>{downloading ? 'Descargando...' : 'Descargar HD'}</span>
+          </button>
+          <a href={src} target="_blank" rel="noopener noreferrer" className="image-action-btn" title="Abrir en pestaña nueva">
+            <ExternalLink size={13} />
+          </a>
+        </div>
+      </div>
+      <div className="image-preview-container">
+        <img src={src} alt={alt || 'Imagen generada'} className="generated-img" loading="lazy" />
       </div>
     </div>
   )

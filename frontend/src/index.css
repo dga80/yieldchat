@@ -789,3 +789,170 @@ body {
 .spin-icon {
   animation: spin 1s linear infinite;
 }
+
+/* ── Image Attachments & Generation Styles ────────────────────────────────── */
+
+.attach-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.attach-btn:hover {
+  background: #182232;
+  color: var(--gold);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.attachment-preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px 4px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #121824;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px 4px 4px;
+}
+
+.attachment-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.attachment-name {
+  font-size: 11px;
+  color: var(--text-main);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove-attachment-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.remove-attachment-btn:hover {
+  color: var(--red);
+}
+
+/* User Attached Images */
+.user-attached-image-wrapper {
+  margin: 6px 0 10px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 280px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0B0F17;
+}
+
+.user-attached-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  max-height: 200px;
+}
+
+.user-attached-tag {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.4);
+  font-style: italic;
+}
+
+/* Generated Image Card */
+.generated-image-card {
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0D121D;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.2s;
+}
+
+.generated-image-card:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.image-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #111722;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.image-action-btn {
+  background: #1A2332;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.image-action-btn:hover {
+  background: #243044;
+  color: #fff;
+  border-color: #38BDF8;
+}
+
+.image-preview-container {
+  width: 100%;
+  max-height: 480px;
+  overflow: hidden;
+  background: #05070B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.generated-img {
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.generated-img:hover {
+  transform: scale(1.01);
+}

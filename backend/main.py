@@ -9,7 +9,7 @@ import uuid
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -35,6 +35,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Directorios de imágenes
+GENERATED_DIR = os.path.join(os.path.dirname(__file__), "generated_images")
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(GENERATED_DIR, exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # ── Estado de Sincronización y Tarea de Fondo ─────────────────────────────────
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -148,6 +154,7 @@ class UpdateSessionRequest(BaseModel):
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    images: Optional[List[str]] = None
 
 class InsightRequest(BaseModel):
     categoria: str
@@ -169,6 +176,24 @@ def get_status():
         "gemini_api_configured": has_gemini_key,
         "app_name": "YieldChat"
     }
+
+
+# ── Rutas de Archivos e Imágenes ──────────────────────────────────────────────
+
+@app.get("/api/images/{filename}")
+def get_generated_image(filename: str):
+    filepath = os.path.join(GENERATED_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+    return FileResponse(filepath, media_type="image/jpeg")
+
+
+@app.get("/api/uploads/{filename}")
+def get_uploaded_image(filename: str):
+    filepath = os.path.join(UPLOADS_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(filepath, media_type="image/jpeg")
 
 
 # ── Rutas de Sesiones de Chat ─────────────────────────────────────────────────
@@ -214,7 +239,7 @@ async def chat_endpoint(req: ChatRequest):
 
     async def event_generator():
         try:
-            async for event in gemini_agent.stream_agent_chat(req.session_id, req.message):
+            async for event in gemini_agent.stream_agent_chat(req.session_id, req.message, req.images):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as e:
             err_payload = {"type": "error", "message": str(e)}
@@ -224,6 +249,7 @@ async def chat_endpoint(req: ChatRequest):
         event_generator(),
         media_type="text/event-stream"
     )
+
 
 
 # ── Rutas de Memoria a Largo Plazo (Aprendizajes) ─────────────────────────────

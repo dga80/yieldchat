@@ -144,10 +144,16 @@ export default function App() {
   }
 
   // 2. Handle Message Send with Streaming Reader
-  const handleSendMessage = async (text) => {
-    if (!text.trim() || loading || !activeSessionId) return
+  const handleSendMessage = async (text, images = []) => {
+    if ((!text.trim() && (!images || images.length === 0)) || loading || !activeSessionId) return
 
-    const userMsg = { role: 'user', content: text, created_at: new Date().toISOString() }
+    // Show preview in user message
+    let displayText = text
+    if (images && images.length > 0) {
+      displayText = `${images.map(img => `![Referencia](${img})`).join('\n\n')}\n\n${text}`
+    }
+
+    const userMsg = { role: 'user', content: displayText, created_at: new Date().toISOString() }
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
     setStreamingMessage('')
@@ -155,7 +161,7 @@ export default function App() {
 
     // Auto-update title if it's the first message of "Nueva Conversación"
     if (activeSession?.title === 'Nueva Conversación' && messages.length === 0) {
-      const autoTitle = text.slice(0, 32) + (text.length > 32 ? '...' : '')
+      const autoTitle = (text || 'Análisis de Imagen').slice(0, 32) + ((text || '').length > 32 ? '...' : '')
       handleUpdateTitle(autoTitle)
     }
 
@@ -165,7 +171,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: activeSessionId,
-          message: text
+          message: text || 'Analiza esta imagen de referencia',
+          images: images && images.length > 0 ? images : undefined
         })
       })
 

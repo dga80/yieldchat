@@ -139,12 +139,68 @@ def add_memory(req: InsightRequest):
     return memory_manager.add_insight(req.categoria, req.regla)
 
 
-@app.delete("/api/memory/{insight_id}")
-def delete_memory(insight_id: int):
-    memory_manager.delete_insight(insight_id)
-    return {"status": "deleted", "id": insight_id}
+# ── Ruta de Sincronización con GitHub ─────────────────────────────────────────
+
+@app.post("/api/sync/github")
+def sync_github():
+    import subprocess
+    repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        # 1. Stage memory files
+        subprocess.run(
+            ["git", "add", "backend/learned_insights.json", "backend/chat_history.db"],
+            cwd=repo_dir,
+            check=True
+        )
+        
+        # 2. Check if there are changes to commit
+        status_res = subprocess.run(
+            ["git", "status", "--porcelain", "backend/learned_insights.json", "backend/chat_history.db"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        if not status_res.stdout.strip():
+            return {
+                "status": "ok",
+                "synced": False,
+                "message": "GitHub ya está al día con la última memoria."
+            }
+            
+        # 3. Commit and push
+        subprocess.run(
+            ["git", "commit", "-m", "sync: actualizar memoria a largo plazo e historial"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        subprocess.run(
+            ["git", "push", "origin", "main"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        return {
+            "status": "ok",
+            "synced": True,
+            "message": "¡Memoria y chats sincronizados con GitHub con éxito!"
+        }
+    except subprocess.CalledProcessError as e:
+        err_msg = e.stderr.strip() if e.stderr else str(e)
+        print(f"[Sync GitHub Error] {err_msg}")
+        raise HTTPException(status_code=500, detail=f"Error Git: {err_msg}")
+    except Exception as e:
+        print(f"[Sync GitHub Error] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+

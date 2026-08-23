@@ -1,5 +1,5 @@
 import React from 'react'
-import { Plus, Trash2, Brain, Sparkles, Youtube, Layers } from 'lucide-react'
+import { Plus, Trash2, Brain, Sparkles, CloudUpload, RefreshCw } from 'lucide-react'
 
 export default function Sidebar({
   sessions,
@@ -8,6 +8,8 @@ export default function Sidebar({
   onNewChat,
   onDeleteSession,
   onOpenMemory,
+  onSyncGitHub,
+  syncing,
   status
 }) {
   return (
@@ -62,6 +64,21 @@ export default function Sidebar({
         <button className="memory-btn" onClick={onOpenMemory}>
           <Brain size={15} style={{ color: 'var(--gold)' }} />
           <span>Memoria del Agente</span>
+        </button>
+
+        <button 
+          className="memory-btn sync-btn" 
+          onClick={onSyncGitHub} 
+          disabled={syncing}
+          title="Sube la memoria y chats actuales a GitHub"
+          style={{ opacity: syncing ? 0.7 : 1 }}
+        >
+          {syncing ? (
+            <RefreshCw size={14} className="spin-icon" style={{ color: '#38BDF8' }} />
+          ) : (
+            <CloudUpload size={15} style={{ color: '#38BDF8' }} />
+          )}
+          <span>{syncing ? 'Sincronizando...' : 'Sincronizar GitHub'}</span>
         </button>
 
         <div className="model-badge">

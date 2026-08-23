@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { X, Trash2, Plus, Brain } from 'lucide-react'
+import { X, Trash2, Plus, Brain, CloudUpload, RefreshCw } from 'lucide-react'
 
-export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, onDeleteInsight }) {
+export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, onDeleteInsight, onSyncGitHub, syncing }) {
   const [categoria, setCategoria] = useState('CANAL')
   const [regla, setRegla] = useState('')
 
@@ -22,12 +22,35 @@ export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, o
             <Brain size={18} style={{ color: 'var(--gold)' }} />
             <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Memoria a Largo Plazo del Agente</h3>
           </div>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={onSyncGitHub}
+              disabled={syncing}
+              style={{
+                background: '#121824',
+                border: '1px solid #1E293B',
+                color: '#38BDF8',
+                borderRadius: 'var(--radius-sm)',
+                padding: '5px 10px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              title="Guardar y subir memoria a GitHub"
+            >
+              {syncing ? <RefreshCw size={12} className="spin-icon" /> : <CloudUpload size={13} />}
+              <span>{syncing ? 'Sincronizando...' : 'Subir a GitHub'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="modal-body">

@@ -17,6 +17,7 @@ export default function App() {
   const [status, setStatus] = useState(null)
   const [insights, setInsights] = useState([])
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   // 1. Initial Load: Sessions, Memory and Status
   useEffect(() => {
@@ -237,6 +238,26 @@ export default function App() {
     }
   }
 
+  // 4. GitHub Sync handler
+  const handleSyncGitHub = async () => {
+    if (syncing) return
+    setSyncing(true)
+    const toastId = toast.loading('Sincronizando memoria con GitHub...')
+    try {
+      const res = await fetch(`${API_BASE}/sync/github`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || 'Error al sincronizar con GitHub')
+      }
+      toast.success(data.message || 'Sincronizado con éxito', { id: toastId })
+    } catch (e) {
+      console.error('Error syncing with GitHub:', e)
+      toast.error(e.message || 'Error al conectar con GitHub', { id: toastId })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="app-container">
       <Toaster
@@ -258,6 +279,8 @@ export default function App() {
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
         onOpenMemory={() => setIsMemoryOpen(true)}
+        onSyncGitHub={handleSyncGitHub}
+        syncing={syncing}
         status={status}
       />
 
@@ -277,6 +300,8 @@ export default function App() {
         insights={insights}
         onAddInsight={handleAddInsight}
         onDeleteInsight={handleDeleteInsight}
+        onSyncGitHub={handleSyncGitHub}
+        syncing={syncing}
       />
     </div>
   )

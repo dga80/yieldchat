@@ -28,5 +28,35 @@
     "categoria": "AUDIENCIA",
     "regla": "El 80% del éxito en este nicho es el Audio (guion narrativo + voz madura/cálida de ElevenLabs). Más del 60% de los usuarios escuchan el vídeo mientras descansan o duermen.",
     "created_at": "2026-08-21T15:57:43.727294+00:00"
+  },
+  {
+    "id": 6,
+    "categoria": "ESTRATEGIA_NICHOS",
+    "regla": "Perfil de Audiencia Avatar vs Nicho por Palabras Clave: No definir canales por un solo tema aislado. Diseñar para un Avatar demográfico completo (ej. Adulto 55+ en TV) mapeando múltiples ramas evergreen (salud, memoria, finanzas, relatos, sueño) con garantía de RPM $2-$4 USD.",
+    "created_at": "2026-08-24T00:58:00.000000+00:00"
+  },
+  {
+    "id": 7,
+    "categoria": "CONTROL_ALGORITMO",
+    "regla": "Regla de los 14 Días de Estabilidad: Prohibido modificar títulos, miniaturas o descripciones de un vídeo antes de cumplir 14 días desde su publicación. El algoritmo de YouTube requiere tiempo para muestrear y emparejar bolsas de audiencia fría.",
+    "created_at": "2026-08-24T00:58:00.000000+00:00"
+  },
+  {
+    "id": 8,
+    "categoria": "MINIATURAS_SMART_TV",
+    "regla": "Ergonomía Visual para Smart TV: Más del 50% de las horas en nichos maduros son en TV. Usar exclusivamente alto contraste (Amarillo sobre Negro o Blanco sobre Rojo brillante), textos gigantes legibles a 3 metros y evitar paletas frías u oscuras apagadas.",
+    "created_at": "2026-08-24T00:58:00.000000+00:00"
+  },
+  {
+    "id": 9,
+    "categoria": "MONETIZACION_YPP",
+    "regla": "Protocolo de Pausa en Revisión: Detener la publicación de nuevos vídeos en cuanto se alcancen las 4.000 horas y 1.000 suscriptores hasta la aceptación oficial del YPP, para no quemar stock de vídeos sin monetizar.",
+    "created_at": "2026-08-24T00:58:00.000000+00:00"
+  },
+  {
+    "id": 10,
+    "categoria": "MONETIZACION_EXTERNA",
+    "regla": "Código QR en Pantalla para Tráfico de TV: En vídeos largos consumidos en Smart TV, colocar un llamado a la acción con QR en los minutos 2:00 y 14:00 ofreciendo una guía o producto digital para duplicar los ingresos de AdSense.",
+    "created_at": "2026-08-24T00:58:00.000000+00:00"
   }
 ]

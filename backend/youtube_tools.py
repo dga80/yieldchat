@@ -177,7 +177,7 @@ def obtener_transcripcion(video_id: str) -> Dict[str, Any]:
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
         ytt = YouTubeTranscriptApi()
-        transcript_obj = ytt.fetch(video_id)
+        transcript_obj = ytt.fetch(video_id, languages=['es', 'en', 'es-ES', 'es-419', 'en-US'])
         
         full_text = " ".join([item.text for item in transcript_obj])
         words = re.findall(r'\b\w+\b', full_text)

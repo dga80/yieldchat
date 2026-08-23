@@ -1,21 +1,19 @@
 """
-Gemini Flash Agent with Auto-Update, Native Tool Calling, Multi-Model Fallback and Long-Term Memory
+Gemini Flash Agent with Native Tool Calling, Multi-Model Fallback and Long-Term Memory
 """
 
 import os
 import json
 import uuid
+import io
+import base64
 from typing import AsyncGenerator, Dict, Any, List, Optional
 import google.generativeai as genai
+from PIL import Image
 from dotenv import load_dotenv
 
 import youtube_tools
 import memory_manager
-import image_tools
-from PIL import Image
-import io
-import base64
-
 
 load_dotenv()
 
@@ -66,20 +64,13 @@ def herramienta_guardar_aprendizaje_en_memoria(categoria: str, regla_o_preferenc
     res = memory_manager.add_insight(categoria, regla_o_preferencia)
     return {"status": "guardado", "insight": res}
 
-def herramienta_generar_imagen(prompt_visual: str, aspect_ratio: str = "16:9", estilo: str = "cinematic aesthetic, 8k") -> dict:
-    """Genera una imagen/miniatura real en alta definición con IA (Nano Banana / Flux) y la incrusta en el chat.
-    aspect_ratio puede ser '16:9' (YouTube / Miniaturas / B-roll), '9:16' (Shorts / Vertical) o '1:1' (Foto Perfil).
-    Retorna el enlace a la imagen y el bloque Markdown para mostrarla en el chat."""
-    return image_tools.generar_imagen(prompt=prompt_visual, aspect_ratio=aspect_ratio, estilo_adicional=estilo)
-
 
 AVAILABLE_TOOLS = [
     herramienta_analizar_canal,
     herramienta_analizar_videos_velocidad,
     herramienta_obtener_transcripcion,
     herramienta_buscar_competencia_espanol,
-    herramienta_guardar_aprendizaje_en_memoria,
-    herramienta_generar_imagen
+    herramienta_guardar_aprendizaje_en_memoria
 ]
 
 
@@ -87,38 +78,29 @@ def build_system_instruction() -> str:
     learned_memory = memory_manager.format_memory_for_system_prompt()
     
     return f"""Eres YieldChat, un Consultor y Estratega de Élite en Crecimiento de Canales de YouTube Faceless (Automatización de YouTube).
-Tu objetivo es ayudar al usuario a descubrir nichos de océano azul, auditar canales competidores con métricas reales, analizar outliers por velocidad de vistas/día, diseñar guiones de alta retención, sugerir configuraciones de voz (TTS/ElevenLabs/Qwen), generar imágenes y miniaturas de máxima conversión con IA y aprender estilos visuales a partir de imágenes de referencia.
+Tu objetivo es ayudar al usuario a descubrir nichos de océano azul, auditar canales competidores con métricas reales, analizar outliers por velocidad de vistas/día, diseñar guiones de alta retención, sugerir configuraciones de voz (TTS/ElevenLabs/Qwen), analizar imágenes de referencia con visión artificial y redactar prompts profesionales de imágenes y miniaturas de máxima conversión (para Midjourney v6, Flux y Nano Banana).
 
-Tienes acceso directo a herramientas en tiempo real:
+Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 1. `herramienta_analizar_canal`: Para obtener radiografías completas de cualquier canal.
 2. `herramienta_analizar_videos_velocidad`: Para analizar todos los vídeos y calcular velocidad (vistas/día) y Viral Ratio.
 3. `herramienta_obtener_transcripcion`: Para contar palabras y velocidad de habla de un vídeo.
 4. `herramienta_buscar_competencia_espanol`: Para comprobar si un formato ya está saturado o es un Océano Azul en español.
 5. `herramienta_guardar_aprendizaje_en_memoria`: Para registrar automáticamente preferencias, canales o reglas clave del usuario.
-6. `herramienta_generar_imagen`: Para generar imágenes y miniaturas reales directamente en el chat usando Nano Banana / Flux. Úsala SIEMPRE que el usuario te pida crear, generar, fusionar o modificar una miniatura o imagen visual.
 
-### REGLAS CRÍTICAS PARA GENERACIÓN Y FUSIÓN DE MINIATURAS (FLUX / NANO BANANA):
-Cuando el usuario te adjunte imágenes de referencia y te pida modificar o fusionar elementos:
-1. **FIDELIDAD A LOS ELEMENTOS SOLICITADOS:**
-   - Si la Ref 1 tiene un estilo de fondo específico (ej. pizarra técnica con diagramas, fórmulas, garabatos de IA) y la Ref 2 tiene un personaje (ej. robot amarillo 3D con pantalla azul), DEBES MANTENER AMBOS ELEMENTOS EXACTOS en el prompt generado.
-   - NUNCA sustituyas un personaje amigable/cute 3D por un cíborg realista o androide oscuro a menos que el usuario lo pida explícitamente.
-   - Si el usuario pide cambiar el color (ej. de amarillo a cian/neón/azul), refleja el nuevo color en los diagramas y luces.
-
-2. **TEXTO EN CASTELLANO Y TIPOGRAFÍA:**
-   - Si el usuario pide cambiar el texto al castellano, traduce el titular a una frase potente y de alta curiosidad en español (ej. "DATOS DE IA QUE DEBES SABER" o "DATOS DE IA QUE NO SABÍAS").
-   - Pon el texto SIEMPRE ENTRE COMILLAS en el prompt para que el modelo de IA lo dibuje con precisión (ej. `large bold centered typography reading "DATOS DE IA QUE DEBES SABER"`).
-
-3. **POSICIONAMIENTO Y COMPOSICIÓN:**
-   - Ubica los personajes y elementos exactamente donde el usuario lo pida (ej. `on the bottom left corner is the cute 3D yellow robot head with blue glowing screen eyes looking towards the center`).
-   - Añade instrucciones negativas implícitas: `no timestamps, no watermark, no digital clock overlay, clean 16:9 YouTube thumbnail composition`.
-
-4. **EJECUCIÓN OBLIGATORIA:**
-   - Inmediatamente después de analizar las instrucciones, INVOCA `herramienta_generar_imagen` con el prompt estructurado en inglés.
-   - Presenta la miniatura en tu respuesta explicando los cambios realizados y los ganchos visuales aplicados.
+### REGLAS DE RESPUESTA:
+- Sé directo, analítico, estructurado y sin rodeos innecesarios.
+- Usa tablas de Markdown para resumir métricas de vídeos y comparativas.
+- Cuando el usuario te pida miniaturas o imágenes:
+  * Diseña la composición paso a paso indicando: elemento principal, fondo, paleta de colores y texto exacto (Línea 1 en blanco / Línea 2 en amarillo #FFD700).
+  * Redacta SIEMPRE el **PROMPT COMPLETO EN INGLÉS** dentro de un bloque de código markdown listo para copiar en 1 clic para Midjourney / Flux / Nano Banana (con parámetros `--ar 16:9 --v 6.1`).
+- Si el usuario te envía **IMÁGENES DE REFERENCIA**:
+  * Analiza con visión artificial todos los detalles: paleta de colores, personajes, composición, tipografía y estilo artístico.
+  * Si el usuario pide adaptar o fusionar referencias (ej. cambiar texto al castellano, colocar un personaje específico en una esquina, modificar fondo), redacta el prompt exacto combinando ambos elementos con máxima fidelidad.
+  * Si el usuario pide aprender el estilo, llama a `herramienta_guardar_aprendizaje_en_memoria` con categoría 'MINIATURAS' o 'ESTILO_VISUAL'.
+- Cuando el usuario te pida investigar un canal o nicho, usa proactivamente tus herramientas para obtener datos 100% verídicos de YouTube antes de responder.
 
 {learned_memory}
 """
-
 
 
 async def stream_agent_chat(
@@ -141,6 +123,9 @@ async def stream_agent_chat(
     # Procesar imágenes adjuntas para Gemini
     pil_images = []
     if images and len(images) > 0:
+        uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        
         for idx, img_b64 in enumerate(images):
             try:
                 # Quitar prefijo data:image/...;base64, si existe
@@ -150,8 +135,6 @@ async def stream_agent_chat(
                 img_bytes = base64.b64decode(raw_b64)
                 
                 # Guardar imagen localmente como referencia
-                uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
-                os.makedirs(uploads_dir, exist_ok=True)
                 ref_filename = f"ref_{uuid.uuid4().hex[:8]}.jpg"
                 ref_filepath = os.path.join(uploads_dir, ref_filename)
                 with open(ref_filepath, "wb") as f:
@@ -227,4 +210,3 @@ async def stream_agent_chat(
     memory_manager.add_message(session_id, "assistant", final_text)
     yield {"type": "content", "content": final_text}
     yield {"type": "done"}
-

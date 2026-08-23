@@ -4,7 +4,8 @@ Gemini Flash Agent with Auto-Update, Native Tool Calling, Multi-Model Fallback a
 
 import os
 import json
-from typing import AsyncGenerator, Dict, Any, List
+import uuid
+from typing import AsyncGenerator, Dict, Any, List, Optional
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ import image_tools
 from PIL import Image
 import io
 import base64
+
 
 load_dotenv()
 

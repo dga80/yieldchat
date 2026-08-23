@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
-import { X, Trash2, Plus, Brain, CloudUpload, RefreshCw } from 'lucide-react'
+import { X, Trash2, Plus, Brain, CloudUpload, RefreshCw, CheckCircle2 } from 'lucide-react'
 
-export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, onDeleteInsight, onSyncGitHub, syncing }) {
+export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, onDeleteInsight, onSyncGitHub, syncing, syncStatus }) {
   const [categoria, setCategoria] = useState('CANAL')
   const [regla, setRegla] = useState('')
+
+  const isSynced = syncStatus?.is_synced && !syncStatus?.has_pending_changes
+  const hasPending = syncStatus?.has_pending_changes
 
   if (!isOpen) return null
 
@@ -28,8 +31,8 @@ export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, o
               disabled={syncing}
               style={{
                 background: '#121824',
-                border: '1px solid #1E293B',
-                color: '#38BDF8',
+                border: `1px solid ${hasPending ? 'rgba(234, 179, 8, 0.4)' : isSynced ? 'rgba(34, 197, 94, 0.25)' : '#1E293B'}`,
+                color: isSynced ? 'var(--green)' : hasPending ? 'var(--gold)' : '#38BDF8',
                 borderRadius: 'var(--radius-sm)',
                 padding: '5px 10px',
                 fontSize: '11.5px',
@@ -41,8 +44,14 @@ export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, o
               }}
               title="Guardar y subir memoria a GitHub"
             >
-              {syncing ? <RefreshCw size={12} className="spin-icon" /> : <CloudUpload size={13} />}
-              <span>{syncing ? 'Sincronizando...' : 'Subir a GitHub'}</span>
+              {syncing ? (
+                <RefreshCw size={12} className="spin-icon" />
+              ) : isSynced ? (
+                <CheckCircle2 size={13} style={{ color: 'var(--green)' }} />
+              ) : (
+                <CloudUpload size={13} />
+              )}
+              <span>{syncing ? 'Sincronizando...' : isSynced ? 'GitHub al día' : 'Subir a GitHub'}</span>
             </button>
             <button
               onClick={onClose}

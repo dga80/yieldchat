@@ -18,12 +18,21 @@ export default function App() {
   const [insights, setInsights] = useState([])
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [syncStatus, setSyncStatus] = useState(null)
 
-  // 1. Initial Load: Sessions, Memory and Status
+  // 1. Initial Load: Sessions, Memory, Status and Sync
   useEffect(() => {
     fetchStatus()
     fetchMemory()
+    fetchSyncStatus()
     loadSessions()
+
+    // Intervalo de comprobación de estado de sincronización cada 20 segundos
+    const syncInterval = setInterval(() => {
+      fetchSyncStatus()
+    }, 20000)
+
+    return () => clearInterval(syncInterval)
   }, [])
 
   const fetchStatus = async () => {
@@ -33,6 +42,16 @@ export default function App() {
       setStatus(data)
     } catch (e) {
       console.error('Error fetching status:', e)
+    }
+  }
+
+  const fetchSyncStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/sync/status`)
+      const data = await res.json()
+      setSyncStatus(data)
+    } catch (e) {
+      console.error('Error fetching sync status:', e)
     }
   }
 
@@ -203,6 +222,7 @@ export default function App() {
         setStreamingMessage('')
       }
       fetchMemory() // refresh memory in case the agent stored a new insight
+      fetchSyncStatus() // refresh sync status
     } catch (e) {
       console.error('Error during streaming chat:', e)
       toast.error('Error al comunicarse con el servidor')
@@ -223,6 +243,7 @@ export default function App() {
       const saved = await res.json()
       setInsights(prev => [...prev, saved])
       toast.success('Regla guardada en la memoria permanente')
+      fetchSyncStatus()
     } catch (e) {
       toast.error('Error al guardar regla')
     }
@@ -233,6 +254,7 @@ export default function App() {
       await fetch(`${API_BASE}/memory/${id}`, { method: 'DELETE' })
       setInsights(prev => prev.filter(i => i.id !== id))
       toast.success('Regla eliminada')
+      fetchSyncStatus()
     } catch (e) {
       toast.error('Error al eliminar regla')
     }
@@ -250,9 +272,11 @@ export default function App() {
         throw new Error(data.detail || 'Error al sincronizar con GitHub')
       }
       toast.success(data.message || 'Sincronizado con éxito', { id: toastId })
+      fetchSyncStatus()
     } catch (e) {
       console.error('Error syncing with GitHub:', e)
       toast.error(e.message || 'Error al conectar con GitHub', { id: toastId })
+      fetchSyncStatus()
     } finally {
       setSyncing(false)
     }
@@ -281,6 +305,7 @@ export default function App() {
         onOpenMemory={() => setIsMemoryOpen(true)}
         onSyncGitHub={handleSyncGitHub}
         syncing={syncing}
+        syncStatus={syncStatus}
         status={status}
       />
 
@@ -302,6 +327,7 @@ export default function App() {
         onDeleteInsight={handleDeleteInsight}
         onSyncGitHub={handleSyncGitHub}
         syncing={syncing}
+        syncStatus={syncStatus}
       />
     </div>
   )

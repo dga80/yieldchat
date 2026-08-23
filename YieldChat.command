@@ -13,7 +13,7 @@ echo "======================================================"
 # Iniciar Backend FastAPI en puerto 8001
 echo "[1/2] Iniciando Backend en puerto 8001..."
 cd "$DIR/backend"
-"$DIR/backend/.venv/bin/uvicorn" main:app --host 127.0.0.1 --port 8001 &
+"$DIR/backend/.venv/bin/uvicorn" main:app --host 127.0.0.1 --port 8001 --reload &
 BACKEND_PID=$!
 
 # Iniciar Frontend Vite en puerto 5174

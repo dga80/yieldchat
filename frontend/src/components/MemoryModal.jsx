@@ -68,18 +68,11 @@ export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, o
           </p>
 
           {/* Add New Insight Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <form onSubmit={handleSubmit} className="memory-add-form">
             <select
               value={categoria}
               onChange={e => setCategoria(e.target.value)}
-              style={{
-                background: '#0B0F17',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-main)',
-                padding: '8px',
-                fontSize: '12px'
-              }}
+              className="memory-select"
             >
               <option value="CANAL">CANAL</option>
               <option value="FORMATO_GUION">GUION</option>
@@ -89,35 +82,14 @@ export default function MemoryModal({ isOpen, onClose, insights, onAddInsight, o
             </select>
             <input
               type="text"
-              placeholder="Escribe una regla o aprendizaje que el agente deba recordar..."
+              placeholder="Escribe una regla o aprendizaje..."
               value={regla}
               onChange={e => setRegla(e.target.value)}
-              style={{
-                flex: 1,
-                background: '#0B0F17',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-main)',
-                padding: '8px 12px',
-                fontSize: '12.5px',
-                outline: 'none'
-              }}
+              className="memory-input"
             />
             <button
               type="submit"
-              style={{
-                background: 'var(--gold)',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                color: '#000',
-                padding: '8px 14px',
-                fontWeight: 600,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4
-              }}
+              className="memory-submit-btn"
             >
               <Plus size={14} /> Añadir
             </button>

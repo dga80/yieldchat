@@ -17,6 +17,7 @@ export default function App() {
   const [status, setStatus] = useState(null)
   const [insights, setInsights] = useState([])
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState(null)
 
@@ -84,6 +85,7 @@ export default function App() {
     setActiveSessionId(sessionId)
     setStreamingMessage('')
     setCurrentTool(null)
+    setIsSidebarOpen(false)
     try {
       const res = await fetch(`${API_BASE}/sessions/${sessionId}`)
       const data = await res.json()
@@ -96,6 +98,7 @@ export default function App() {
   }
 
   const handleNewChat = async () => {
+    setIsSidebarOpen(false)
     try {
       const res = await fetch(`${API_BASE}/sessions`, {
         method: 'POST',
@@ -309,11 +312,16 @@ export default function App() {
         onSelectSession={selectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
-        onOpenMemory={() => setIsMemoryOpen(true)}
+        onOpenMemory={() => {
+          setIsSidebarOpen(false)
+          setIsMemoryOpen(true)
+        }}
         onSyncGitHub={handleSyncGitHub}
         syncing={syncing}
         syncStatus={syncStatus}
         status={status}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
       <ChatArea
@@ -324,6 +332,7 @@ export default function App() {
         loading={loading}
         onSendMessage={handleSendMessage}
         onUpdateTitle={handleUpdateTitle}
+        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
       />
 
       <MemoryModal

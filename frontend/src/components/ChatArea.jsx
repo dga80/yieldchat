@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Menu } from 'lucide-react'
 import MessageItem from './MessageItem'
 
 const QUICK_PROMPTS = [
@@ -16,7 +16,8 @@ export default function ChatArea({
   currentTool,
   loading,
   onSendMessage,
-  onUpdateTitle
+  onUpdateTitle,
+  onToggleSidebar
 }) {
   const [input, setInput] = useState('')
   const [attachments, setAttachments] = useState([]) // [{ id, data, name }]
@@ -119,34 +120,45 @@ export default function ChatArea({
     <main className="chat-main">
       {/* Header */}
       <div className="chat-header">
-        <div className="chat-header-title">
-          {isEditingTitle ? (
-            <input
-              type="text"
-              value={titleText}
-              onChange={e => setTitleText(e.target.value)}
-              onBlur={handleTitleSubmit}
-              onKeyDown={e => e.key === 'Enter' && handleTitleSubmit()}
-              autoFocus
-              style={{
-                background: '#161F2E',
-                border: '1px solid var(--border-focus)',
-                color: 'var(--text-main)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '14px',
-                outline: 'none'
-              }}
-            />
-          ) : (
-            <span
-              onClick={() => setIsEditingTitle(true)}
-              style={{ cursor: 'pointer' }}
-              title="Haz clic para renombrar"
-            >
-              {session?.title || 'Conversación'}
-            </span>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+          <button 
+            className="mobile-menu-btn" 
+            onClick={onToggleSidebar}
+            title="Abrir menú"
+            aria-label="Abrir menú"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="chat-header-title">
+            {isEditingTitle ? (
+              <input
+                type="text"
+                value={titleText}
+                onChange={e => setTitleText(e.target.value)}
+                onBlur={handleTitleSubmit}
+                onKeyDown={e => e.key === 'Enter' && handleTitleSubmit()}
+                autoFocus
+                style={{
+                  background: '#161F2E',
+                  border: '1px solid var(--border-focus)',
+                  color: 'var(--text-main)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  maxWidth: '100%'
+                }}
+              />
+            ) : (
+              <span
+                onClick={() => setIsEditingTitle(true)}
+                style={{ cursor: 'pointer' }}
+                title="Haz clic para renombrar"
+              >
+                {session?.title || 'Conversación'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

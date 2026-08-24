@@ -1,5 +1,5 @@
 import React from 'react'
-import { Plus, Trash2, Brain, Sparkles, CloudUpload, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Brain, Sparkles, CloudUpload, RefreshCw, CheckCircle2, AlertCircle, X } from 'lucide-react'
 
 export default function Sidebar({
   sessions,
@@ -11,23 +11,36 @@ export default function Sidebar({
   onSyncGitHub,
   syncing,
   syncStatus,
-  status
+  status,
+  isOpen,
+  onClose
 }) {
   const isSynced = syncStatus?.is_synced && !syncStatus?.has_pending_changes
   const hasPending = syncStatus?.has_pending_changes
 
   return (
-    <aside className="sidebar">
-      {/* Header / Brand */}
-      <div className="sidebar-header">
-        <div className="app-brand">
-          <div className="brand-icon">
-            <Sparkles size={16} />
+    <>
+      <div 
+        className={`sidebar-overlay ${isOpen ? 'open' : ''}`} 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+        {/* Header / Brand */}
+        <div className="sidebar-header">
+          <div className="app-brand">
+            <div className="brand-icon">
+              <Sparkles size={16} />
+            </div>
+            <span>YieldChat</span>
           </div>
-          <span>YieldChat</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">AGENTE IA</span>
+            <button className="mobile-close-btn" onClick={onClose} title="Cerrar menú">
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <span className="brand-tag">AGENTE IA</span>
-      </div>
 
       {/* New Chat Action */}
       <button className="new-chat-btn" onClick={onNewChat}>
@@ -116,5 +129,6 @@ export default function Sidebar({
         </div>
       </div>
     </aside>
+    </>
   )
 }

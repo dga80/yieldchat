@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Menu } from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu } from 'lucide-react'
 import MessageItem from './MessageItem'
 
 const QUICK_PROMPTS = [
@@ -9,6 +9,14 @@ const QUICK_PROMPTS = [
   'Generar un fondo vertical para un YouTube Short'
 ]
 
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
 export default function ChatArea({
   session,
   messages,
@@ -17,15 +25,12 @@ export default function ChatArea({
   loading,
   onSendMessage,
   onUpdateTitle,
-  onToggleSidebar
+  onToggleSidebar,
+  onStop
 }) {
-  const [input, setInput] = useState('')
-  const [attachments, setAttachments] = useState([]) // [{ id, data, name }]
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleText, setTitleText] = useState('')
   const messagesEndRef = useRef(null)
-  const textareaRef = useRef(null)
-  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (session) {
@@ -40,65 +45,6 @@ export default function ChatArea({
   useEffect(() => {
     scrollToBottom()
   }, [messages, streamingMessage, currentTool])
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  const handleFiles = (files) => {
-    if (!files || files.length === 0) return
-    Array.from(files).forEach(file => {
-      if (!file.type.startsWith('image/')) return
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setAttachments(prev => [
-          ...prev,
-          { id: Math.random().toString(36).substring(7), data: e.target.result, name: file.name }
-        ])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
-
-  const handlePaste = (e) => {
-    const items = e.clipboardData?.items
-    if (!items) return
-    const imageFiles = []
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith('image/')) {
-        const file = items[i].getAsFile()
-        if (file) imageFiles.push(file)
-      }
-    }
-    if (imageFiles.length > 0) {
-      e.preventDefault()
-      handleFiles(imageFiles)
-    }
-  }
-
-  const removeAttachment = (id) => {
-    setAttachments(prev => prev.filter(a => a.id !== id))
-  }
-
-  const handleSend = () => {
-    if ((!input.trim() && attachments.length === 0) || loading) return
-    const imagesPayload = attachments.map(a => a.data)
-    onSendMessage(input.trim(), imagesPayload)
-    setInput('')
-    setAttachments([])
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
-  }
-
-  const handleInputResize = (e) => {
-    setInput(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`
-  }
 
   const handleTitleSubmit = () => {
     setIsEditingTitle(false)
@@ -176,7 +122,10 @@ export default function ChatArea({
           </div>
         ) : (
           displayMessages.map((msg, idx) => (
-            <MessageItem key={msg.id || idx} message={msg} />
+            <MessageItem 
+              key={msg.id || `msg-${idx}-${msg.role}`} 
+              message={msg} 
+            />
           ))
         )}
 
@@ -187,15 +136,28 @@ export default function ChatArea({
               <Bot size={18} />
             </div>
             <div className="message-body">
-              <div className="thinking-bubble">
-                <div className="typing-dots">
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
+              <div className="thinking-bubble" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: 'fit-content' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="typing-dots">
+                    <span className="dot" />
+                    <span className="dot" />
+                    <span className="dot" />
+                  </div>
+                  <span className="thinking-text">
+                    {currentTool ? `Ejecutando ${currentTool}...` : 'YieldChat está procesando y creando...'}
+                  </span>
                 </div>
-                <span className="thinking-text">
-                  {currentTool ? `Ejecutando ${currentTool}...` : 'YieldChat está procesando y creando...'}
-                </span>
+                {onStop && (
+                  <button
+                    type="button"
+                    className="stop-bubble-btn"
+                    onClick={onStop}
+                    title="Detener consulta actual"
+                  >
+                    <Square size={10} fill="currentColor" />
+                    <span>Detener</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -204,88 +166,263 @@ export default function ChatArea({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="input-area-wrapper">
-        {displayMessages.length === 0 && (
-          <div className="quick-prompts">
-            {QUICK_PROMPTS.map((prompt, i) => (
-              <button
-                key={i}
-                className="quick-pill"
-                onClick={() => onSendMessage(prompt, [])}
-              >
-                {prompt}
-              </button>
+      {/* Input Area (Isolated to prevent re-rendering message list on keystrokes) */}
+      <ChatInputBox 
+        loading={loading}
+        onSendMessage={onSendMessage}
+        onStop={onStop}
+        showQuickPrompts={displayMessages.length === 0}
+      />
+    </main>
+  )
+}
+
+/**
+ * Isolated ChatInputBox Component
+ * Keystrokes inside this component only re-render the input box itself,
+ * ensuring zero-latency typing regardless of conversation history size.
+ */
+const ChatInputBox = React.memo(function ChatInputBox({
+  loading,
+  onSendMessage,
+  onStop,
+  showQuickPrompts
+}) {
+  const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState([])
+  const [isDragging, setIsDragging] = useState(false)
+  const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  const handleFiles = (files) => {
+    if (!files || files.length === 0) return
+    Array.from(files).forEach(file => {
+      const isImg = file.type.startsWith('image/')
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+      const sizeStr = formatFileSize(file.size)
+
+      if (isImg || isPdf) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setAttachments(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(36).substring(7),
+              name: file.name,
+              type: isImg ? 'image' : 'pdf',
+              data: e.target.result,
+              size: sizeStr
+            }
+          ])
+        }
+        reader.readAsDataURL(file)
+      } else {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setAttachments(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(36).substring(7),
+              name: file.name,
+              type: 'text',
+              text: e.target.result,
+              size: sizeStr
+            }
+          ])
+        }
+        reader.readAsText(file)
+      }
+    })
+  }
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const pastedFiles = []
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const file = items[i].getAsFile()
+        if (file) pastedFiles.push(file)
+      }
+    }
+    if (pastedFiles.length > 0) {
+      e.preventDefault()
+      handleFiles(pastedFiles)
+    }
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files)
+    }
+  }
+
+  const removeAttachment = (id) => {
+    setAttachments(prev => prev.filter(a => a.id !== id))
+  }
+
+  const handleSend = () => {
+    if ((!input.trim() && attachments.length === 0) || loading) return
+    onSendMessage(input.trim(), attachments)
+    setInput('')
+    setAttachments([])
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+  }
+
+  const handleInputResize = (e) => {
+    const val = e.target.value
+    setInput(val)
+    const target = e.target
+    target.style.height = 'auto'
+    target.style.height = `${Math.min(target.scrollHeight, 180)}px`
+  }
+
+  return (
+    <div className="input-area-wrapper">
+      {showQuickPrompts && (
+        <div className="quick-prompts">
+          {QUICK_PROMPTS.map((prompt, i) => (
+            <button
+              key={i}
+              className="quick-pill"
+              onClick={() => onSendMessage(prompt, [])}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div 
+        className={`chat-input-box ${isDragging ? 'dragging-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Attached Files & Images Preview */}
+        {attachments.length > 0 && (
+          <div className="attachment-preview-bar">
+            {attachments.map(att => (
+              <div key={att.id} className="attachment-chip">
+                {att.type === 'image' ? (
+                  <img src={att.data} alt="Referencia" className="attachment-thumb" />
+                ) : att.type === 'pdf' ? (
+                  <div className="attachment-file-badge pdf-badge">
+                    <FileText size={16} />
+                  </div>
+                ) : (
+                  <div className="attachment-file-badge txt-badge">
+                    <FileCode size={16} />
+                  </div>
+                )}
+                <div className="attachment-meta">
+                  <span className="attachment-name" title={att.name}>{att.name}</span>
+                  {att.size && <span className="attachment-size">{att.size}</span>}
+                </div>
+                <button 
+                  type="button"
+                  className="remove-attachment-btn" 
+                  onClick={() => removeAttachment(att.id)}
+                  title="Quitar archivo"
+                >
+                  <X size={12} />
+                </button>
+              </div>
             ))}
           </div>
         )}
 
-        <div className="chat-input-box">
-          {/* Attached Images Preview */}
-          {attachments.length > 0 && (
-            <div className="attachment-preview-bar">
-              {attachments.map(att => (
-                <div key={att.id} className="attachment-chip">
-                  <img src={att.data} alt="Referencia" className="attachment-thumb" />
-                  <span className="attachment-name">{att.name}</span>
-                  <button 
-                    className="remove-attachment-btn" 
-                    onClick={() => removeAttachment(att.id)}
-                    title="Quitar imagen"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+        {isDragging && (
+          <div className="drag-drop-overlay">
+            <UploadCloud size={24} />
+            <span>Suelta los archivos aquí para adjuntarlos</span>
+          </div>
+        )}
 
-          <textarea
-            ref={textareaRef}
-            className="chat-textarea"
-            placeholder="Escribe tu consulta o arrastra/pega imágenes de referencia..."
-            value={input}
-            onChange={handleInputResize}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            rows={1}
-            disabled={loading}
-          />
+        <textarea
+          ref={textareaRef}
+          className="chat-textarea"
+          placeholder="Escribe tu consulta o arrastra/pega texto, PDFs o imágenes de referencia..."
+          value={input}
+          onChange={handleInputResize}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          rows={1}
+          disabled={loading}
+        />
 
-          <div className="chat-input-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                multiple
-                accept="image/*"
-                onChange={(e) => handleFiles(e.target.files)}
-              />
+        <div className="chat-input-footer">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              multiple
+              accept="image/*,.txt,.md,.markdown,.json,.csv,.pdf,.py,.js,.jsx,.ts,.tsx,.html,.css,.yaml,.yml,.log,.tsv,.docx,.doc"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <button
+              type="button"
+              className="attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Adjuntar archivos de texto (.txt, .md, .csv, .json), PDFs o imágenes de referencia"
+              disabled={loading}
+            >
+              <Paperclip size={15} />
+              <span>Adjuntar Archivo</span>
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="input-hint">{loading ? 'Generando respuesta...' : 'Enter para enviar'}</span>
+            {loading ? (
               <button
                 type="button"
-                className="attach-btn"
-                onClick={() => fileInputRef.current?.click()}
-                title="Adjuntar imagen de referencia para que el agente aprenda o se inspire"
+                className="stop-btn"
+                onClick={onStop}
+                title="Detener generación"
               >
-                <ImagePlus size={16} />
-                <span>Adjuntar Referencia</span>
+                <Square size={12} fill="currentColor" />
+                <span>Detener</span>
               </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="input-hint">Enter para enviar</span>
+            ) : (
               <button
+                type="button"
                 className="send-btn"
                 onClick={handleSend}
-                disabled={(!input.trim() && attachments.length === 0) || loading}
+                disabled={(!input.trim() && attachments.length === 0)}
+                title="Enviar consulta"
               >
-                {loading ? <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#000' }} /> : <Send size={15} />}
+                <Send size={15} />
               </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
-    </main>
+    </div>
   )
-}
+})

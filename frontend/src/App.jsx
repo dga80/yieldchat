@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Toaster, toast } from 'react-hot-toast'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
@@ -20,6 +20,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState(null)
+  const abortControllerRef = useRef(null)
 
   // 1. Initial Load: Sessions, Memory, Status and Sync
   useEffect(() => {
@@ -146,15 +147,67 @@ export default function App() {
     }
   }
 
-  // 2. Handle Message Send with Streaming Reader
-  const handleSendMessage = async (text, images = []) => {
-    if ((!text.trim() && (!images || images.length === 0)) || loading || !activeSessionId) return
-
-    // Show preview in user message
-    let displayText = text
-    if (images && images.length > 0) {
-      displayText = `${images.map(img => `![Referencia](${img})`).join('\n\n')}\n\n${text}`
+  // 2. Handle Message Send with Streaming Reader and Abort Capability
+  const handleStopChat = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
     }
+    setLoading(false)
+    setCurrentTool(null)
+    if (streamingMessage) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: streamingMessage + '\n\n*(Consulta detenida por el usuario)*', created_at: new Date().toISOString() }
+      ])
+      setStreamingMessage('')
+    }
+    toast('Consulta detenida', { icon: '⏹️' })
+  }
+
+  const handleSendMessage = async (text, attachments = []) => {
+    if ((!text.trim() && (!attachments || attachments.length === 0)) || loading || !activeSessionId) return
+
+    // Construir previsualización limpia del mensaje del usuario y payloads
+    let displayText = ''
+    const filesPayload = []
+    const legacyImagesPayload = []
+
+    if (attachments && attachments.length > 0) {
+      attachments.forEach(att => {
+        if (typeof att === 'string') {
+          displayText += `![Referencia](${att})\n\n`
+          legacyImagesPayload.push(att)
+        } else if (att.type === 'image') {
+          displayText += `![Referencia](${att.data})\n\n`
+          filesPayload.push({
+            name: att.name,
+            type: 'image',
+            data: att.data,
+            size: att.size
+          })
+        } else if (att.type === 'pdf') {
+          displayText += `📑 **Documento adjunto:** \`${att.name}\`${att.size ? ` *(${att.size})*` : ''}\n\n`
+          filesPayload.push({
+            name: att.name,
+            type: 'pdf',
+            data: att.data,
+            size: att.size
+          })
+        } else if (att.type === 'text') {
+          // Mostramos solo el badge del archivo en la burbuja visual (el contenido se envía en filesPayload)
+          displayText += `📄 **Archivo adjunto:** \`${att.name}\`${att.size ? ` *(${att.size})*` : ''}\n\n`
+          filesPayload.push({
+            name: att.name,
+            type: 'text',
+            text: att.text,
+            size: att.size
+          })
+        }
+      })
+    }
+
+    displayText += text || (attachments.length > 0 ? 'Analiza los archivos adjuntos.' : '')
 
     const userMsg = { role: 'user', content: displayText, created_at: new Date().toISOString() }
     setMessages(prev => [...prev, userMsg])
@@ -164,9 +217,12 @@ export default function App() {
 
     // Auto-update title if it's the first message of "Nueva Conversación"
     if (activeSession?.title === 'Nueva Conversación' && messages.length === 0) {
-      const autoTitle = (text || 'Análisis de Imagen').slice(0, 32) + ((text || '').length > 32 ? '...' : '')
+      const autoTitle = (text || attachments[0]?.name || 'Análisis de Archivo').slice(0, 32)
       handleUpdateTitle(autoTitle)
     }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     try {
       const response = await fetch(`${API_BASE}/chat`, {
@@ -174,9 +230,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: activeSessionId,
-          message: text || 'Analiza esta imagen de referencia',
-          images: images && images.length > 0 ? images : undefined
-        })
+          message: text || 'Analiza los archivos adjuntos.',
+          files: filesPayload.length > 0 ? filesPayload : undefined,
+          images: legacyImagesPayload.length > 0 ? legacyImagesPayload : undefined
+        }),
+        signal: controller.signal
       })
 
       if (!response.body) throw new Error('No readable stream from server')
@@ -234,9 +292,14 @@ export default function App() {
       fetchMemory() // refresh memory in case the agent stored a new insight
       fetchSyncStatus() // refresh sync status
     } catch (e) {
-      console.error('Error during streaming chat:', e)
-      toast.error('Error al comunicarse con el servidor')
+      if (e.name === 'AbortError') {
+        console.log('Consulta abortada por el usuario.')
+      } else {
+        console.error('Error during streaming chat:', e)
+        toast.error('Error al comunicarse con el servidor')
+      }
     } finally {
+      abortControllerRef.current = null
       setLoading(false)
       setCurrentTool(null)
     }
@@ -333,6 +396,7 @@ export default function App() {
         onSendMessage={handleSendMessage}
         onUpdateTitle={handleUpdateTitle}
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        onStop={handleStopChat}
       />
 
       <MemoryModal

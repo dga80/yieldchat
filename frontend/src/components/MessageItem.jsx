@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Copy, Check, Bot, User, Download, ExternalLink, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function MessageItem({ message }) {
+function MessageItemComponent({ message }) {
   const isUser = message.role === 'user'
 
   return (
@@ -80,7 +80,7 @@ export default function MessageItem({ message }) {
   )
 }
 
-function ImageCard({ src, alt }) {
+const ImageCard = React.memo(function ImageCard({ src, alt }) {
   const [downloading, setDownloading] = useState(false)
 
   const handleDownload = async () => {
@@ -98,25 +98,18 @@ function ImageCard({ src, alt }) {
       window.URL.revokeObjectURL(blobUrl)
       toast.success('Imagen descargada en HD')
     } catch (e) {
-      window.open(src, '_blank')
+      toast.error('Error al descargar la imagen')
     } finally {
       setDownloading(false)
     }
-  }
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(src)
-    toast.success('Enlace de imagen copiado')
   }
 
   return (
     <div className="generated-image-card">
       <div className="image-card-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Sparkles size={14} style={{ color: 'var(--gold)' }} />
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
-            {alt || 'Ilustración / Miniatura IA (Nano Banana / Flux)'}
-          </span>
+          <Sparkles size={14} color="#F59E0B" />
+          <span style={{ fontSize: '12px', fontWeight: 600, color: '#F59E0B' }}>Miniatura IA Generada</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button className="image-action-btn" onClick={handleDownload} title="Descargar imagen en alta calidad">
@@ -133,9 +126,9 @@ function ImageCard({ src, alt }) {
       </div>
     </div>
   )
-}
+})
 
-function CodeBlock({ text, language }) {
+const CodeBlock = React.memo(function CodeBlock({ text, language }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
@@ -166,4 +159,12 @@ function CodeBlock({ text, language }) {
       <pre>{text}</pre>
     </div>
   )
-}
+})
+
+const MessageItem = React.memo(MessageItemComponent, (prevProps, nextProps) => {
+  return prevProps.message.id === nextProps.message.id &&
+         prevProps.message.content === nextProps.message.content &&
+         prevProps.message.role === nextProps.message.role
+})
+
+export default MessageItem

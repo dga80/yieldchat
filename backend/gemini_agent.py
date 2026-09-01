@@ -1,5 +1,6 @@
 """
-Gemini Flash Agent with Native Tool Calling, Multi-Model Fallback and Long-Term Memory
+Gemini Agent with Native Tool Calling, Multi-Model Fallback and Long-Term Memory
+Powered by the official Google GenAI SDK (google-genai)
 """
 
 import os
@@ -7,8 +8,11 @@ import json
 import uuid
 import io
 import base64
+import asyncio
+import socket
 from typing import AsyncGenerator, Dict, Any, List, Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from PIL import Image
 from dotenv import load_dotenv
 
@@ -17,28 +21,29 @@ import memory_manager
 
 load_dotenv()
 
+socket.setdefaulttimeout(40)
+
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 FLASH_CANDIDATES = [
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
     "gemini-flash-lite-latest"
 ]
 
-def _configure_gemini():
+def _get_client() -> genai.Client:
     if not API_KEY or API_KEY == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY no está configurada en .env")
-    genai.configure(api_key=API_KEY)
+    return genai.Client(api_key=API_KEY)
 
 
 def get_active_model_name() -> str:
     env_model = os.getenv("GEMINI_MODEL")
     if env_model:
         return env_model
-    return "gemini-3.6-flash"
+    return "gemini-3.5-flash"
 
 
 # ── Herramientas declaradas para Gemini ───────────────────────────────────────
@@ -103,100 +108,176 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 """
 
 
+def _sanitize_history_for_genai(raw_messages: List[Dict[str, Any]]) -> List[types.Content]:
+    """
+    Garantiza que el historial cumpla estrictamente las reglas de Gemini:
+    - Alternancia estricta entre 'user' y 'model'.
+    - Comienza siempre con 'user'.
+    - Mensajes consecutivos del mismo rol se concatenan.
+    - El historial DEBE terminar con 'model' para que la siguiente llamada chat.send_message() sea el nuevo turno de 'user'.
+    """
+    if not raw_messages:
+        return []
+        
+    sanitized: List[types.Content] = []
+    for msg in raw_messages:
+        role = "user" if msg.get("role") == "user" else "model"
+        content = msg.get("content", "").strip()
+        if not content:
+            continue
+            
+        if not sanitized:
+            if role == "user":
+                sanitized.append(types.Content(role="user", parts=[types.Part.from_text(text=content)]))
+        else:
+            if sanitized[-1].role == role:
+                # Merge into previous turn text
+                prev_text = sanitized[-1].parts[0].text or ""
+                sanitized[-1].parts = [types.Part.from_text(text=f"{prev_text}\n\n{content}")]
+            else:
+                sanitized.append(types.Content(role=role, parts=[types.Part.from_text(text=content)]))
+                
+    # Si termina en 'user', lo retiramos porque el nuevo mensaje se enviará en chat.send_message()
+    if sanitized and sanitized[-1].role == "user":
+        sanitized.pop()
+        
+    return sanitized
+
+
+def _execute_chat_turn(client: genai.Client, model_name: str, config: types.GenerateContentConfig, history: List[types.Content], payload: Any):
+    """Ejecuta una ronda de chat completa con soporte automático de herramientas y tipos de partes."""
+    chat = client.chats.create(model=model_name, config=config, history=history)
+    return chat.send_message(payload)
+
+
 async def stream_agent_chat(
     session_id: str, 
     user_message: str, 
-    images: Optional[List[str]] = None
+    images: Optional[List[str]] = None,
+    files: Optional[List[Dict[str, Any]]] = None
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
-    Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas, soporte multimodal de imágenes, fallback inteligente y streaming.
+    Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas, soporte multimodal de imágenes, archivos de texto y PDFs, fallback inteligente y streaming no bloqueante.
     """
-    _configure_gemini()
+    client = _get_client()
+    uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
     
-    # 1. Recuperar historial de mensajes de la sesión
+    # 1. Recuperar historial de mensajes PREVIOS de la sesión (antes de agregar el actual)
     session_data = memory_manager.get_session(session_id)
     history_messages = session_data.get("messages", []) if session_data else []
     
-    # Preparar contenido guardado en BD
-    stored_user_content = user_message
+    # Preparar contenido guardado en BD y partes del payload de Gemini
+    stored_user_content = ""
+    payload_parts = []
     
-    # Procesar imágenes adjuntas para Gemini
-    pil_images = []
+    # 2. Procesar archivos adjuntos (texto, PDFs, imágenes)
+    if files and len(files) > 0:
+        for idx, f in enumerate(files):
+            f_name = f.get("name", f"archivo_{idx}")
+            f_type = f.get("type", "text")
+            f_size = f.get("size", "")
+            size_label = f" *({f_size})*" if f_size else ""
+
+            if f_type == "text" or f.get("text"):
+                txt_content = f.get("text", "")
+                stored_user_content += f"📄 **Archivo adjunto:** `{f_name}`{size_label}\n\n"
+                payload_parts.append(types.Part.from_text(text=f"=== Archivo Adjunto: {f_name} ===\n{txt_content}\n=== Fin del Archivo ==="))
+            elif f_type == "pdf":
+                raw_b64 = f.get("data", "")
+                if "," in raw_b64:
+                    raw_b64 = raw_b64.split(",", 1)[1]
+                try:
+                    pdf_bytes = base64.b64decode(raw_b64)
+                    pdf_filename = f"doc_{uuid.uuid4().hex[:8]}.pdf"
+                    pdf_filepath = os.path.join(uploads_dir, pdf_filename)
+                    with open(pdf_filepath, "wb") as pf:
+                        pf.write(pdf_bytes)
+                    stored_user_content += f"📑 **Documento PDF adjunto:** [{f_name}](/api/uploads/{pdf_filename})\n\n"
+                    payload_parts.append(types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"))
+                except Exception as ex:
+                    print(f"[GeminiAgent] Error processing PDF {f_name}: {ex}")
+            elif f_type == "image":
+                raw_b64 = f.get("data", "")
+                if "," in raw_b64:
+                    raw_b64 = raw_b64.split(",", 1)[1]
+                try:
+                    img_bytes = base64.b64decode(raw_b64)
+                    ref_filename = f"ref_{uuid.uuid4().hex[:8]}.jpg"
+                    ref_filepath = os.path.join(uploads_dir, ref_filename)
+                    with open(ref_filepath, "wb") as imgf:
+                        imgf.write(img_bytes)
+                    stored_user_content += f"![Referencia](/api/uploads/{ref_filename})\n\n"
+                    payload_parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
+                except Exception as ex:
+                    print(f"[GeminiAgent] Error processing image {f_name}: {ex}")
+
+    # 3. Procesar imágenes del array legacy si existen
     if images and len(images) > 0:
-        uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
-        os.makedirs(uploads_dir, exist_ok=True)
-        
         for idx, img_b64 in enumerate(images):
             try:
-                # Quitar prefijo data:image/...;base64, si existe
                 raw_b64 = img_b64
                 if "," in raw_b64:
                     raw_b64 = raw_b64.split(",", 1)[1]
                 img_bytes = base64.b64decode(raw_b64)
-                
-                # Guardar imagen localmente como referencia
                 ref_filename = f"ref_{uuid.uuid4().hex[:8]}.jpg"
                 ref_filepath = os.path.join(uploads_dir, ref_filename)
-                with open(ref_filepath, "wb") as f:
-                    f.write(img_bytes)
-                
-                # Inyectar markdown de la referencia en el mensaje del usuario
-                img_md = f"![Referencia](/api/uploads/{ref_filename})\n\n"
-                stored_user_content = img_md + stored_user_content
-                
-                # PIL Image para Gemini Vision
-                pil_img = Image.open(io.BytesIO(img_bytes))
-                pil_images.append(pil_img)
+                with open(ref_filepath, "wb") as imf:
+                    imf.write(img_bytes)
+                stored_user_content += f"![Referencia](/api/uploads/{ref_filename})\n\n"
+                payload_parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
             except Exception as e:
-                print(f"[GeminiAgent] Error processing attached image {idx}: {e}")
+                print(f"[GeminiAgent] Error processing attached legacy image {idx}: {e}")
                 
-    # Guardar mensaje del usuario en SQLite
+    # Agregar texto del usuario al almacenamiento y al payload
+    stored_user_content += user_message
     memory_manager.add_message(session_id, "user", stored_user_content)
     
-    # Formatear historial para google-generativeai
-    formatted_history = []
-    for msg in history_messages:
-        role = "user" if msg["role"] == "user" else "model"
-        formatted_history.append({
-            "role": role,
-            "parts": [msg["content"]]
-        })
+    if user_message:
+        payload_parts.append(types.Part.from_text(text=user_message))
+        
+    send_payload = payload_parts if len(payload_parts) > 1 else (payload_parts[0] if payload_parts else user_message)
+    
+    # Formatear y sanitizar historial para google-genai
+    formatted_history = _sanitize_history_for_genai(history_messages)
+
+    # Configuración de generación
+    config = types.GenerateContentConfig(
+        system_instruction=build_system_instruction(),
+        tools=AVAILABLE_TOOLS,
+        temperature=0.7
+    )
 
     # Lista de modelos con fallback automático
     env_model = os.getenv("GEMINI_MODEL")
     candidate_models = [env_model] if env_model else FLASH_CANDIDATES
     
-    chat = None
     selected_model_name = None
     response = None
 
-    # Contenido de la consulta actual (multimodal si hay imágenes)
-    send_payload = pil_images + [user_message] if pil_images else user_message
-
     for model_name in candidate_models:
         try:
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=build_system_instruction(),
-                tools=AVAILABLE_TOOLS,
-                generation_config=genai.GenerationConfig(temperature=0.7)
+            # Ejecutar de forma no bloqueante en hilo con timeout de 70s
+            response = await asyncio.wait_for(
+                asyncio.to_thread(_execute_chat_turn, client, model_name, config, formatted_history, send_payload),
+                timeout=70.0
             )
-            # Habilitar function calling automático nativo
-            chat = model.start_chat(history=formatted_history, enable_automatic_function_calling=True)
-            response = chat.send_message(send_payload)
             selected_model_name = model_name
             break
+        except asyncio.TimeoutError:
+            print(f"[GeminiAgent] Timeout (70s) excedido con modelo {model_name}. Intentando fallback...")
+            continue
         except Exception as e:
             err_str = str(e).lower()
             print(f"[GeminiAgent] Fallback from {model_name}: {e}")
-            if "quota" in err_str or "429" in err_str or "not found" in err_str or "404" in err_str:
+            if "quota" in err_str or "429" in err_str or "not found" in err_str or "404" in err_str or "deadline" in err_str or "unavailable" in err_str or "resource_exhausted" in err_str:
                 continue
             else:
                 # Error fatal
                 raise e
 
-    if not chat or not response:
-        err_msg = "Todos los modelos de Gemini alcanzaron su cuota de peticiones. Por favor, espera 1 minuto o revisa tu cuota en Google AI Studio."
+    if not response:
+        err_msg = "El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota. Por favor, intenta de nuevo en unos segundos."
         memory_manager.add_message(session_id, "assistant", err_msg)
         yield {"type": "content", "content": err_msg}
         yield {"type": "done"}
@@ -206,7 +287,11 @@ async def stream_agent_chat(
     yield {"type": "model_info", "model": selected_model_name}
     
     # Enviar respuesta final
-    final_text = response.text if hasattr(response, "text") else "Análisis completado."
+    try:
+        final_text = response.text if hasattr(response, "text") else "Análisis completado."
+    except Exception:
+        final_text = "Análisis completado."
+        
     memory_manager.add_message(session_id, "assistant", final_text)
     yield {"type": "content", "content": final_text}
     yield {"type": "done"}

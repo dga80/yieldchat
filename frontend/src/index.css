@@ -348,9 +348,17 @@ body {
   max-width: 100%;
   align-self: flex-start;
   color: var(--text-main);
-  white-space: pre-wrap;
+  line-height: 1.5;
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+.message-user-content p {
+  margin: 0 0 8px 0;
+}
+
+.message-user-content p:last-child {
+  margin-bottom: 0;
 }
 
 .message-agent-content {
@@ -628,6 +636,53 @@ body {
   box-shadow: 0 0 12px var(--gold-glow);
 }
 
+.stop-btn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #EF4444;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.stop-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #EF4444;
+  color: #FCA5A5;
+  transform: scale(1.03);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+}
+
+.stop-bubble-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #EF4444;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  margin-left: 12px;
+  transition: all 0.15s ease;
+}
+
+.stop-bubble-btn:hover {
+  background: rgba(239, 68, 68, 0.28);
+  color: #FCA5A5;
+  border-color: #EF4444;
+}
+
 /* Modal */
 .modal-overlay {
   position: fixed;
@@ -824,11 +879,11 @@ body {
 .attachment-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: #121824;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 4px 8px 4px 4px;
+  padding: 4px 8px 4px 6px;
 }
 
 .attachment-thumb {
@@ -838,13 +893,44 @@ body {
   border-radius: 4px;
 }
 
+.attachment-file-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.attachment-file-badge.pdf-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.attachment-file-badge.txt-badge {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3B82F6;
+}
+
+.attachment-meta {
+  display: flex;
+  flex-direction: column;
+  max-width: 140px;
+}
+
 .attachment-name {
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
   color: var(--text-main);
-  max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.attachment-size {
+  font-size: 9.5px;
+  color: var(--text-dim);
 }
 
 .remove-attachment-btn {
@@ -855,10 +941,34 @@ body {
   display: flex;
   align-items: center;
   padding: 2px;
+  border-radius: 4px;
+  transition: all 0.15s;
 }
 
 .remove-attachment-btn:hover {
   color: var(--red);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.chat-input-box.dragging-over {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 20px var(--gold-glow) !important;
+  position: relative;
+}
+
+.drag-drop-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed var(--gold);
+  border-radius: var(--radius-md);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  animation: pulse 1.5s infinite;
 }
 
 /* User Attached Images */

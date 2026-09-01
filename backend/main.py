@@ -151,10 +151,18 @@ class CreateSessionRequest(BaseModel):
 class UpdateSessionRequest(BaseModel):
     title: str
 
+class AttachedFile(BaseModel):
+    name: str
+    type: str  # 'text', 'pdf', 'image'
+    data: Optional[str] = None
+    text: Optional[str] = None
+    size: Optional[str] = None
+
 class ChatRequest(BaseModel):
     session_id: str
     message: str
     images: Optional[List[str]] = None
+    files: Optional[List[AttachedFile]] = None
 
 class InsightRequest(BaseModel):
     categoria: str
@@ -193,7 +201,7 @@ def get_uploaded_image(filename: str):
     filepath = os.path.join(UPLOADS_DIR, filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    return FileResponse(filepath, media_type="image/jpeg")
+    return FileResponse(filepath)
 
 
 # ── Rutas de Sesiones de Chat ─────────────────────────────────────────────────
@@ -232,15 +240,27 @@ def delete_session(session_id: str):
 # ── Ruta de Chat con Streaming (Server-Sent Events) ───────────────────────────
 
 @app.post("/api/chat")
-async def chat_endpoint(req: ChatRequest):
+async def chat_endpoint(req: ChatRequest, request: Request):
     session = memory_manager.get_session(req.session_id)
     if not session:
         memory_manager.create_session(req.session_id, req.message[:30] + "...")
 
+    files_list = [f.model_dump() for f in req.files] if req.files else None
+
     async def event_generator():
         try:
-            async for event in gemini_agent.stream_agent_chat(req.session_id, req.message, req.images):
+            async for event in gemini_agent.stream_agent_chat(
+                session_id=req.session_id,
+                user_message=req.message,
+                images=req.images,
+                files=files_list
+            ):
+                if await request.is_disconnected():
+                    print(f"[Chat] Cliente canceló o se desconectó de la sesión {req.session_id}")
+                    break
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except asyncio.CancelledError:
+            print(f"[Chat] Tarea cancelada por el cliente para la sesión {req.session_id}")
         except Exception as e:
             err_payload = {"type": "error", "message": str(e)}
             yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"

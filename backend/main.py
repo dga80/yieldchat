@@ -147,9 +147,21 @@ async def on_startup():
 
 class CreateSessionRequest(BaseModel):
     title: Optional[str] = "Nueva Conversación"
+    folder_id: Optional[str] = None
 
 class UpdateSessionRequest(BaseModel):
     title: str
+
+class CreateFolderRequest(BaseModel):
+    name: str
+    color: Optional[str] = "#F59E0B"
+
+class UpdateFolderRequest(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+
+class SetSessionFolderRequest(BaseModel):
+    folder_id: Optional[str] = None
 
 class AttachedFile(BaseModel):
     name: str
@@ -204,6 +216,33 @@ def get_uploaded_image(filename: str):
     return FileResponse(filepath)
 
 
+# ── Rutas de Carpetas / Temas ─────────────────────────────────────────────────
+
+@app.get("/api/folders")
+def list_folders():
+    return memory_manager.list_folders()
+
+
+@app.post("/api/folders")
+def create_folder(req: CreateFolderRequest):
+    new_id = f"folder-{uuid.uuid4().hex[:8]}"
+    return memory_manager.create_folder(new_id, req.name.strip(), req.color or "#F59E0B")
+
+
+@app.patch("/api/folders/{folder_id}")
+def update_folder(folder_id: str, req: UpdateFolderRequest):
+    updated = memory_manager.update_folder(folder_id, req.name.strip() if req.name else None, req.color)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Carpeta no encontrada")
+    return updated
+
+
+@app.delete("/api/folders/{folder_id}")
+def delete_folder(folder_id: str):
+    memory_manager.delete_folder(folder_id)
+    return {"status": "deleted", "id": folder_id}
+
+
 # ── Rutas de Sesiones de Chat ─────────────────────────────────────────────────
 
 @app.get("/api/sessions")
@@ -214,7 +253,7 @@ def list_sessions():
 @app.post("/api/sessions")
 def create_session(req: CreateSessionRequest):
     new_id = f"chat-{uuid.uuid4().hex[:10]}"
-    return memory_manager.create_session(new_id, req.title or "Nueva Conversación")
+    return memory_manager.create_session(new_id, req.title or "Nueva Conversación", req.folder_id)
 
 
 @app.get("/api/sessions/{session_id}")
@@ -229,6 +268,15 @@ def get_session(session_id: str):
 def update_session(session_id: str, req: UpdateSessionRequest):
     memory_manager.update_session_title(session_id, req.title)
     return {"status": "updated", "id": session_id, "title": req.title}
+
+
+@app.patch("/api/sessions/{session_id}/folder")
+def set_session_folder(session_id: str, req: SetSessionFolderRequest):
+    session = memory_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Conversación no encontrada")
+    memory_manager.assign_session_folder(session_id, req.folder_id)
+    return {"status": "updated", "id": session_id, "folder_id": req.folder_id}
 
 
 @app.delete("/api/sessions/{session_id}")

@@ -1,86 +1,255 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Copy, Check, Bot, User, Download, ExternalLink, Sparkles } from 'lucide-react'
+import {
+  Copy,
+  Check,
+  Bot,
+  User,
+  Download,
+  ExternalLink,
+  Sparkles,
+  FileText,
+  FileCode,
+  FileSpreadsheet,
+  Maximize2,
+  X,
+  Eye
+} from 'lucide-react'
 import toast from 'react-hot-toast'
+
+function parseAttachmentLine(str) {
+  if (typeof str !== 'string') return null
+  const isAttachment = str.includes('Archivo adjunto:') || str.includes('Documento adjunto:') || str.includes('Documento PDF adjunto:')
+  if (!isAttachment) return null
+
+  let filename = ''
+  let size = ''
+  let url = null
+
+  const linkMatch = str.match(/\[([^\]]+)\]\(([^)]+)\)/)
+  if (linkMatch) {
+    filename = linkMatch[1]
+    url = linkMatch[2]
+  } else {
+    const codeMatch = str.match(/`([^`]+)`/)
+    if (codeMatch) {
+      filename = codeMatch[1]
+    }
+  }
+
+  const sizeMatch = str.match(/\*\(([^)]+)\)\*/)
+  if (sizeMatch) {
+    size = sizeMatch[1]
+  }
+
+  if (!filename) return null
+
+  const ext = filename.split('.').pop()?.toLowerCase() || ''
+  const isPdf = ext === 'pdf' || str.toLowerCase().includes('pdf')
+  const isCode = ['py', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'sql', 'sh', 'yaml', 'yml'].includes(ext)
+  const isSheet = ['csv', 'tsv', 'xlsx', 'xls'].includes(ext)
+
+  return {
+    filename,
+    size,
+    url,
+    extension: ext || 'txt',
+    type: isPdf ? 'pdf' : isCode ? 'code' : isSheet ? 'spreadsheet' : 'text'
+  }
+}
 
 function MessageItemComponent({ message }) {
   const isUser = message.role === 'user'
+  const [lightboxImg, setLightboxImg] = useState(null)
 
   return (
-    <div className="message-row">
-      <div className={`message-avatar ${isUser ? 'avatar-user' : 'avatar-agent'}`}>
-        {isUser ? <User size={16} /> : <Bot size={18} />}
-      </div>
+    <>
+      <div className={`message-row ${isUser ? 'user-row' : 'agent-row'}`}>
+        <div className={`message-avatar ${isUser ? 'avatar-user' : 'avatar-agent'}`}>
+          {isUser ? <User size={16} /> : <Bot size={18} />}
+        </div>
 
-      <div className="message-body">
-        {isUser ? (
-          <div className="message-user-content">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                img({ node, src, alt, ...props }) {
-                  return (
-                    <div className="user-attached-image-wrapper">
-                      <img src={src} alt={alt || 'Referencia visual'} className="user-attached-img" />
-                      <span className="user-attached-tag">Referencia visual adjunta</span>
-                    </div>
-                  )
-                }
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <div className="message-agent-content">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                img({ node, src, alt, ...props }) {
-                  return <ImageCard src={src} alt={alt} />
-                },
-                code({ node, inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '')
-                  const codeText = String(children).replace(/\n$/, '')
+        <div className="message-body">
+          {isUser ? (
+            <div className="message-user-content">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p({ node, children, ...props }) {
+                    // Comprobar si el texto del párrafo describe un archivo adjunto
+                    const textContent = React.Children.toArray(children)
+                      .map(child => (typeof child === 'string' ? child : child?.props?.children || ''))
+                      .join('')
 
-                  if (inline) {
+                    const attachmentInfo = parseAttachmentLine(textContent)
+                    if (attachmentInfo) {
+                      return <UserFileAttachmentCard info={attachmentInfo} />
+                    }
+
+                    return <p {...props}>{children}</p>
+                  },
+                  img({ node, src, alt, ...props }) {
                     return (
-                      <code style={{ background: '#1E293B', color: '#F59E0B', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)', fontSize: '0.9em' }}>
-                        {children}
-                      </code>
+                      <UserImageAttachmentCard
+                        src={src}
+                        alt={alt || 'Referencia visual'}
+                        onOpenLightbox={() => setLightboxImg(src)}
+                      />
                     )
                   }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div className="message-agent-content">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  img({ node, src, alt, ...props }) {
+                    return <ImageCard src={src} alt={alt} onOpenLightbox={() => setLightboxImg(src)} />
+                  },
+                  code({ node, inline, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '')
+                    const codeText = String(children).replace(/\n$/, '')
 
-                  return (
-                    <CodeBlock text={codeText} language={match ? match[1] : 'text'} />
-                  )
-                },
-                a({ node, href, children, ...props }) {
-                  return (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#3B82F6', textDecoration: 'underline', fontWeight: 500 }}
-                      {...props}
-                    >
-                      {children}
-                    </a>
-                  )
-                }
-              }}
+                    if (inline) {
+                      return (
+                        <code style={{ background: '#1E293B', color: '#F59E0B', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)', fontSize: '0.9em' }}>
+                          {children}
+                        </code>
+                      )
+                    }
+
+                    return (
+                      <CodeBlock text={codeText} language={match ? match[1] : 'text'} />
+                    )
+                  },
+                  a({ node, href, children, ...props }) {
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#3B82F6', textDecoration: 'underline', fontWeight: 500 }}
+                        {...props}
+                      >
+                        {children}
+                      </a>
+                    )
+                  }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Lightbox Modal para ver imágenes adjuntas en grande */}
+      {lightboxImg && (
+        <div className="lightbox-overlay" onClick={() => setLightboxImg(null)}>
+          <div className="lightbox-content" onClick={e => e.stopPropagation()}>
+            <button 
+              className="lightbox-close-btn" 
+              onClick={() => setLightboxImg(null)}
+              title="Cerrar vista previa"
             >
-              {message.content}
-            </ReactMarkdown>
+              <X size={20} />
+            </button>
+            <img src={lightboxImg} alt="Vista previa completa" className="lightbox-image" />
+            <div className="lightbox-footer">
+              <a 
+                href={lightboxImg} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="lightbox-action-btn"
+                download
+              >
+                <Download size={14} />
+                <span>Descargar archivo</span>
+              </a>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
+ * Tarjeta para imágenes adjuntas por el usuario con miniatura y botón de zoom
+ */
+function UserImageAttachmentCard({ src, alt, onOpenLightbox }) {
+  return (
+    <div className="user-attached-image-card">
+      <div className="user-attached-thumb-container" onClick={onOpenLightbox} title="Clic para ampliar imagen">
+        <img src={src} alt={alt} className="user-attached-img" />
+        <div className="user-attached-hover-overlay">
+          <Maximize2 size={16} />
+          <span>Ampliar</span>
+        </div>
+      </div>
+      <div className="user-attached-caption">
+        <span className="user-attached-tag">📷 Imagen adjunta</span>
+        <button type="button" className="user-attached-zoom-btn" onClick={onOpenLightbox} title="Ver tamaño completo">
+          <Eye size={12} />
+          <span>Ver</span>
+        </button>
       </div>
     </div>
   )
 }
 
-const ImageCard = React.memo(function ImageCard({ src, alt }) {
+/**
+ * Tarjeta visual para documentos y archivos de texto adjuntos por el usuario
+ */
+function UserFileAttachmentCard({ info }) {
+  const { filename, size, url, extension, type } = info
+
+  return (
+    <div className={`user-file-card ${type}`}>
+      <div className="user-file-icon-wrap">
+        {type === 'pdf' ? (
+          <FileText size={20} className="file-icon-svg pdf" />
+        ) : type === 'code' ? (
+          <FileCode size={20} className="file-icon-svg code" />
+        ) : type === 'spreadsheet' ? (
+          <FileSpreadsheet size={20} className="file-icon-svg sheet" />
+        ) : (
+          <FileText size={20} className="file-icon-svg txt" />
+        )}
+        <span className="file-extension-pill">{extension.toUpperCase()}</span>
+      </div>
+
+      <div className="user-file-details">
+        <span className="user-file-name" title={filename}>{filename}</span>
+        <div className="user-file-meta">
+          <span className="user-file-badge">{type === 'pdf' ? 'Documento PDF' : type === 'code' ? 'Código / Script' : type === 'spreadsheet' ? 'Hoja de cálculo' : 'Archivo de texto'}</span>
+          {size && <span className="user-file-size">{size}</span>}
+        </div>
+      </div>
+
+      {url && (
+        <a 
+          href={url} 
+          target="_blank" 
+          rel="noreferrer" 
+          className="user-file-action-btn"
+          title="Abrir o descargar archivo"
+        >
+          <Download size={13} />
+          <span>Abrir</span>
+        </a>
+      )}
+    </div>
+  )
+}
+
+const ImageCard = React.memo(function ImageCard({ src, alt, onOpenLightbox }) {
   const [downloading, setDownloading] = useState(false)
 
   const handleDownload = async () => {
@@ -116,12 +285,17 @@ const ImageCard = React.memo(function ImageCard({ src, alt }) {
             <Download size={13} />
             <span>{downloading ? 'Descargando...' : 'Descargar HD'}</span>
           </button>
+          {onOpenLightbox && (
+            <button className="image-action-btn" onClick={onOpenLightbox} title="Ver ampliada">
+              <Maximize2 size={13} />
+            </button>
+          )}
           <a href={src} target="_blank" rel="noopener noreferrer" className="image-action-btn" title="Abrir en pestaña nueva">
             <ExternalLink size={13} />
           </a>
         </div>
       </div>
-      <div className="image-preview-container">
+      <div className="image-preview-container" onClick={onOpenLightbox} style={{ cursor: onOpenLightbox ? 'pointer' : 'default' }}>
         <img src={src} alt={alt || 'Imagen generada'} className="generated-img" loading="lazy" />
       </div>
     </div>

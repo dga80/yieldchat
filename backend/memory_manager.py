@@ -19,14 +19,32 @@ def init_db():
     cursor = conn.cursor()
     
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS sessions (
+    CREATE TABLE IF NOT EXISTS folders (
         id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT DEFAULT '#F59E0B',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        folder_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
+    )
+    """)
     
+    # Migración: asegurar que la columna folder_id existe si la tabla sessions ya existía
+    cursor.execute("PRAGMA table_info(sessions)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "folder_id" not in columns:
+        cursor.execute("ALTER TABLE sessions ADD COLUMN folder_id TEXT")
+
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,13 +65,89 @@ def init_db():
         save_all_insights([])
 
 
+# ── Gestión de Carpetas / Temas (SQLite) ─────────────────────────────────────
+
+def list_folders() -> List[Dict[str, Any]]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT f.id, f.name, f.color, f.created_at, f.updated_at,
+               COUNT(s.id) as session_count
+        FROM folders f
+        LEFT JOIN sessions s ON s.folder_id = f.id
+        GROUP BY f.id
+        ORDER BY f.created_at ASC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_folder(folder_id: str, name: str, color: str = "#F59E0B") -> Dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO folders (id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (folder_id, name, color, now, now)
+    )
+    conn.commit()
+    conn.close()
+    return {"id": folder_id, "name": name, "color": color, "created_at": now, "updated_at": now, "session_count": 0}
+
+
+def update_folder(folder_id: str, name: Optional[str] = None, color: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, color, created_at, updated_at FROM folders WHERE id = ?", (folder_id,))
+    folder = cursor.fetchone()
+    if not folder:
+        conn.close()
+        return None
+    
+    new_name = name if name is not None else folder["name"]
+    new_color = color if color is not None else folder["color"]
+    cursor.execute("UPDATE folders SET name = ?, color = ?, updated_at = ? WHERE id = ?", (new_name, new_color, now, folder_id))
+    conn.commit()
+    conn.close()
+    return {"id": folder_id, "name": new_name, "color": new_color, "updated_at": now}
+
+
+def delete_folder(folder_id: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Desvincular las sesiones de esta carpeta
+    cursor.execute("UPDATE sessions SET folder_id = NULL WHERE folder_id = ?", (folder_id,))
+    cursor.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+    conn.commit()
+    conn.close()
+
+
+def assign_session_folder(session_id: str, folder_id: Optional[str]):
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE sessions SET folder_id = ?, updated_at = ? WHERE id = ?", (folder_id, now, session_id))
+    conn.commit()
+    conn.close()
+
+
 # ── Gestión de Sesiones y Mensajes (SQLite) ──────────────────────────────────
 
 def list_sessions() -> List[Dict[str, Any]]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT id, title, created_at, updated_at FROM sessions ORDER BY updated_at DESC")
+    cursor.execute("""
+        SELECT s.id, s.title, s.folder_id, s.created_at, s.updated_at,
+               f.name as folder_name, f.color as folder_color
+        FROM sessions s
+        LEFT JOIN folders f ON s.folder_id = f.id
+        ORDER BY s.updated_at DESC
+    """)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -63,7 +157,13 @@ def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT id, title, created_at, updated_at FROM sessions WHERE id = ?", (session_id,))
+    cursor.execute("""
+        SELECT s.id, s.title, s.folder_id, s.created_at, s.updated_at,
+               f.name as folder_name, f.color as folder_color
+        FROM sessions s
+        LEFT JOIN folders f ON s.folder_id = f.id
+        WHERE s.id = ?
+    """, (session_id,))
     row = cursor.fetchone()
     if not row:
         conn.close()
@@ -78,17 +178,17 @@ def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     return res
 
 
-def create_session(session_id: str, title: str) -> Dict[str, Any]:
+def create_session(session_id: str, title: str, folder_id: Optional[str] = None) -> Dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-        (session_id, title, now, now)
+        "INSERT INTO sessions (id, title, folder_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (session_id, title, folder_id, now, now)
     )
     conn.commit()
     conn.close()
-    return {"id": session_id, "title": title, "created_at": now, "updated_at": now, "messages": []}
+    return {"id": session_id, "title": title, "folder_id": folder_id, "created_at": now, "updated_at": now, "messages": []}
 
 
 def update_session_title(session_id: str, title: str):

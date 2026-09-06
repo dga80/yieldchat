@@ -8,6 +8,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 export default function App() {
   const [sessions, setSessions] = useState([])
+  const [folders, setFolders] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [activeSession, setActiveSession] = useState(null)
   const [messages, setMessages] = useState([])
@@ -22,11 +23,12 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(null)
   const abortControllerRef = useRef(null)
 
-  // 1. Initial Load: Sessions, Memory, Status and Sync
+  // 1. Initial Load: Sessions, Folders, Memory, Status and Sync
   useEffect(() => {
     fetchStatus()
     fetchMemory()
     fetchSyncStatus()
+    fetchFolders()
     loadSessions()
 
     // Intervalo de comprobación de estado de sincronización cada 20 segundos
@@ -67,6 +69,16 @@ export default function App() {
     }
   }
 
+  const fetchFolders = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/folders`)
+      const data = await res.json()
+      setFolders(data)
+    } catch (e) {
+      console.error('Error fetching folders:', e)
+    }
+  }
+
   const loadSessions = async () => {
     try {
       const res = await fetch(`${API_BASE}/sessions`)
@@ -98,17 +110,18 @@ export default function App() {
     }
   }
 
-  const handleNewChat = async () => {
+  const handleNewChat = async (folderId = null) => {
     setIsSidebarOpen(false)
     try {
       const res = await fetch(`${API_BASE}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Nueva Conversación' })
+        body: JSON.stringify({ title: 'Nueva Conversación', folder_id: folderId })
       })
       const newSession = await res.json()
       setSessions(prev => [newSession, ...prev])
       selectSession(newSession.id)
+      if (folderId) fetchFolders()
     } catch (e) {
       toast.error('Error al crear nueva conversación')
     }
@@ -119,6 +132,7 @@ export default function App() {
       await fetch(`${API_BASE}/sessions/${sessionId}`, { method: 'DELETE' })
       const updated = sessions.filter(s => s.id !== sessionId)
       setSessions(updated)
+      fetchFolders() // actualizar conteos de carpetas
       if (activeSessionId === sessionId) {
         if (updated.length > 0) {
           selectSession(updated[0].id)
@@ -129,6 +143,87 @@ export default function App() {
       toast.success('Conversación eliminada')
     } catch (e) {
       toast.error('Error al eliminar conversación')
+    }
+  }
+
+  const handleCreateFolder = async (name, color = '#F59E0B') => {
+    try {
+      const res = await fetch(`${API_BASE}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color })
+      })
+      const newFolder = await res.json()
+      setFolders(prev => [...prev, newFolder])
+      toast.success(`Carpeta "${name}" creada`)
+      return newFolder
+    } catch (e) {
+      toast.error('Error al crear carpeta')
+    }
+  }
+
+  const handleUpdateFolder = async (folderId, name, color) => {
+    try {
+      const res = await fetch(`${API_BASE}/folders/${folderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color })
+      })
+      const updated = await res.json()
+      setFolders(prev => prev.map(f => f.id === folderId ? { ...f, ...updated } : f))
+      setSessions(prev => prev.map(s => s.folder_id === folderId ? {
+        ...s,
+        folder_name: updated.name,
+        folder_color: updated.color
+      } : s))
+      toast.success('Carpeta actualizada')
+    } catch (e) {
+      toast.error('Error al actualizar carpeta')
+    }
+  }
+
+  const handleDeleteFolder = async (folderId) => {
+    try {
+      await fetch(`${API_BASE}/folders/${folderId}`, { method: 'DELETE' })
+      setFolders(prev => prev.filter(f => f.id !== folderId))
+      setSessions(prev => prev.map(s => s.folder_id === folderId ? {
+        ...s,
+        folder_id: null,
+        folder_name: null,
+        folder_color: null
+      } : s))
+      toast.success('Carpeta eliminada (conversaciones conservadas)')
+    } catch (e) {
+      toast.error('Error al eliminar carpeta')
+    }
+  }
+
+  const handleMoveSessionToFolder = async (sessionId, folderId) => {
+    try {
+      await fetch(`${API_BASE}/sessions/${sessionId}/folder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_id: folderId })
+      })
+      const targetFolder = folders.find(f => f.id === folderId)
+      setSessions(prev => prev.map(s => s.id === sessionId ? {
+        ...s,
+        folder_id: folderId,
+        folder_name: targetFolder ? targetFolder.name : null,
+        folder_color: targetFolder ? targetFolder.color : null
+      } : s))
+      if (activeSession?.id === sessionId) {
+        setActiveSession(prev => ({
+          ...prev,
+          folder_id: folderId,
+          folder_name: targetFolder ? targetFolder.name : null,
+          folder_color: targetFolder ? targetFolder.color : null
+        }))
+      }
+      fetchFolders()
+      toast.success(folderId ? `Movido a "${targetFolder?.name || 'Carpeta'}"` : 'Movido a Sin clasificar')
+    } catch (e) {
+      toast.error('Error al mover conversación')
     }
   }
 
@@ -371,10 +466,15 @@ export default function App() {
 
       <Sidebar
         sessions={sessions}
+        folders={folders}
         activeSessionId={activeSessionId}
         onSelectSession={selectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
+        onCreateFolder={handleCreateFolder}
+        onUpdateFolder={handleUpdateFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onMoveSessionToFolder={handleMoveSessionToFolder}
         onOpenMemory={() => {
           setIsSidebarOpen(false)
           setIsMemoryOpen(true)

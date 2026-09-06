@@ -203,12 +203,19 @@ const ChatInputBox = React.memo(function ChatInputBox({
 
   const handleFiles = (files) => {
     if (!files || files.length === 0) return
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'ico', 'avif', 'heic']
+    const codeExtensions = ['js', 'jsx', 'ts', 'tsx', 'py', 'html', 'css', 'json', 'sql', 'sh', 'yaml', 'yml', 'md', 'markdown']
+    const spreadsheetExtensions = ['csv', 'tsv', 'xlsx', 'xls']
+
     Array.from(files).forEach(file => {
-      const isImg = file.type.startsWith('image/')
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+      const ext = file.name.split('.').pop()?.toLowerCase() || ''
+      const isImg = file.type.startsWith('image/') || imageExtensions.includes(ext)
+      const isPdf = file.type === 'application/pdf' || ext === 'pdf'
+      const isCode = codeExtensions.includes(ext)
+      const isSheet = spreadsheetExtensions.includes(ext)
       const sizeStr = formatFileSize(file.size)
 
-      if (isImg || isPdf) {
+      if (isImg) {
         const reader = new FileReader()
         reader.onload = (e) => {
           setAttachments(prev => [
@@ -216,7 +223,24 @@ const ChatInputBox = React.memo(function ChatInputBox({
             {
               id: Math.random().toString(36).substring(7),
               name: file.name,
-              type: isImg ? 'image' : 'pdf',
+              type: 'image',
+              extension: ext || 'img',
+              data: e.target.result,
+              size: sizeStr
+            }
+          ])
+        }
+        reader.readAsDataURL(file)
+      } else if (isPdf) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          setAttachments(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(36).substring(7),
+              name: file.name,
+              type: 'pdf',
+              extension: 'pdf',
               data: e.target.result,
               size: sizeStr
             }
@@ -231,7 +255,8 @@ const ChatInputBox = React.memo(function ChatInputBox({
             {
               id: Math.random().toString(36).substring(7),
               name: file.name,
-              type: 'text',
+              type: isCode ? 'code' : isSheet ? 'spreadsheet' : 'text',
+              extension: ext || 'txt',
               text: e.target.result,
               size: sizeStr
             }
@@ -240,6 +265,10 @@ const ChatInputBox = React.memo(function ChatInputBox({
         reader.readAsText(file)
       }
     })
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handlePaste = (e) => {
@@ -327,21 +356,39 @@ const ChatInputBox = React.memo(function ChatInputBox({
         {attachments.length > 0 && (
           <div className="attachment-preview-bar">
             {attachments.map(att => (
-              <div key={att.id} className="attachment-chip">
+              <div key={att.id} className={`attachment-chip ${att.type}`}>
                 {att.type === 'image' ? (
-                  <img src={att.data} alt="Referencia" className="attachment-thumb" />
+                  <div className="attachment-image-thumb-wrap">
+                    <img src={att.data} alt="Miniatura" className="attachment-thumb" />
+                    <span className="attachment-type-tag">IMG</span>
+                  </div>
                 ) : att.type === 'pdf' ? (
                   <div className="attachment-file-badge pdf-badge">
-                    <FileText size={16} />
+                    <FileText size={18} />
+                    <span className="badge-sub">PDF</span>
+                  </div>
+                ) : att.type === 'code' ? (
+                  <div className="attachment-file-badge code-badge">
+                    <FileCode size={18} />
+                    <span className="badge-sub">{att.extension?.toUpperCase() || 'CODE'}</span>
+                  </div>
+                ) : att.type === 'spreadsheet' ? (
+                  <div className="attachment-file-badge sheet-badge">
+                    <FileText size={18} />
+                    <span className="badge-sub">{att.extension?.toUpperCase() || 'DATA'}</span>
                   </div>
                 ) : (
                   <div className="attachment-file-badge txt-badge">
-                    <FileCode size={16} />
+                    <FileText size={18} />
+                    <span className="badge-sub">{att.extension?.toUpperCase() || 'TXT'}</span>
                   </div>
                 )}
                 <div className="attachment-meta">
                   <span className="attachment-name" title={att.name}>{att.name}</span>
-                  {att.size && <span className="attachment-size">{att.size}</span>}
+                  <div className="attachment-sub-meta">
+                    <span className="attachment-type-pill">{att.type === 'image' ? 'Imagen' : att.type === 'pdf' ? 'PDF' : 'Archivo'}</span>
+                    {att.size && <span className="attachment-size">{att.size}</span>}
+                  </div>
                 </div>
                 <button 
                   type="button"
@@ -349,7 +396,7 @@ const ChatInputBox = React.memo(function ChatInputBox({
                   onClick={() => removeAttachment(att.id)}
                   title="Quitar archivo"
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               </div>
             ))}

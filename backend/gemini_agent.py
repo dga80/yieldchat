@@ -26,10 +26,13 @@ socket.setdefaulttimeout(40)
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 FLASH_CANDIDATES = [
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
-    "gemini-3.6-flash",
-    "gemini-flash-latest",
+    "gemini-2.5-flash",
     "gemini-flash-lite-latest"
 ]
 
@@ -43,7 +46,7 @@ def get_active_model_name() -> str:
     env_model = os.getenv("GEMINI_MODEL")
     if env_model:
         return env_model
-    return "gemini-3.5-flash"
+    return FLASH_CANDIDATES[0]
 
 
 # ── Herramientas declaradas para Gemini ───────────────────────────────────────
@@ -269,12 +272,11 @@ async def stream_agent_chat(
             continue
         except Exception as e:
             err_str = str(e).lower()
-            print(f"[GeminiAgent] Fallback from {model_name}: {e}")
-            if "quota" in err_str or "429" in err_str or "not found" in err_str or "404" in err_str or "deadline" in err_str or "unavailable" in err_str or "resource_exhausted" in err_str:
+            if any(k in err_str for k in ["quota", "429", "not found", "404", "deadline", "unavailable", "resource_exhausted", "overloaded", "503", "500", "internal", "unsupported"]):
                 continue
             else:
-                # Error fatal
-                raise e
+                # Si es otro error de API, también intentamos siguiente candidato
+                continue
 
     if not response:
         err_msg = "El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota. Por favor, intenta de nuevo en unos segundos."

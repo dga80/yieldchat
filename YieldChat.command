@@ -4,34 +4,37 @@
 # ==============================================================================
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd "$DIR"
 
 echo "======================================================"
-echo "          Iniciando YieldChat (Gemini Flash)          "
+echo "       YieldChat — Asistente Estratégico YouTube      "
 echo "======================================================"
-
-# Iniciar Backend FastAPI en puerto 8001
-echo "[1/2] Iniciando Backend en puerto 8001..."
-cd "$DIR/backend"
-"$DIR/backend/.venv/bin/uvicorn" main:app --host 127.0.0.1 --port 8001 --reload &
-BACKEND_PID=$!
-
-# Iniciar Frontend Vite en puerto 5174
-echo "[2/2] Iniciando Frontend en puerto 5174..."
-cd "$DIR/frontend"
-npm run dev &
-FRONTEND_PID=$!
-
-# Esperar 2 segundos para que arranquen los servicios
-sleep 2
-
-# Abrir el navegador en la interfaz
-open "http://localhost:5174"
-
 echo ""
-echo "-> YieldChat está activo en: http://localhost:5174"
-echo "-> Presiona Ctrl+C para detener la aplicación."
+echo "  [1] Abrir YieldChat en la Nube (Compartido con Móvil) [Por defecto en 4s]"
+echo "  [2] Iniciar Servidor Local en este Mac (Offline)"
+echo ""
+read -t 4 -p "Selecciona una opción [1]: " OPTION || OPTION="1"
+[ -z "$OPTION" ] && OPTION="1"
+echo ""
 
-# Capturar salida para apagar ambos procesos al cerrar la terminal
-trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM EXIT
-wait
+if [ "$OPTION" = "2" ]; then
+    echo "[1/2] Iniciando Backend local en puerto 8001..."
+    cd "$DIR/backend"
+    "$DIR/backend/.venv/bin/uvicorn" main:app --host 127.0.0.1 --port 8001 --reload &
+    BACKEND_PID=$!
+
+    echo "[2/2] Iniciando Frontend local en puerto 5174..."
+    cd "$DIR/frontend"
+    npm run dev &
+    FRONTEND_PID=$!
+
+    sleep 2
+    open "http://localhost:5174"
+    echo ""
+    echo "-> YieldChat Local activo en: http://localhost:5174"
+    echo "-> Presiona Ctrl+C para detener la aplicación."
+    trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM EXIT
+    wait
+else
+    echo "Abriendo YieldChat en la nube (compartido con tu móvil)..."
+    open "https://dga80.github.io/yieldchat/"
+fi

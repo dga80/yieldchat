@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen } from 'lucide-react'
 import MessageItem from './MessageItem'
 
 const QUICK_PROMPTS = [
@@ -32,6 +32,7 @@ export default function ChatArea({
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleText, setTitleText] = useState('')
+  const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -41,7 +42,9 @@ export default function ChatArea({
   }, [session])
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
   }
 
   useEffect(() => {
@@ -66,65 +69,69 @@ export default function ChatArea({
 
   return (
     <main className="chat-main">
-      {/* Header */}
-      <div className="chat-header">
-        <div className="chat-header-left">
-          <button 
-            className="sidebar-toggle-btn" 
-            onClick={onToggleSidebar}
-            title={isSidebarOpen ? "Ocultar menú de conversaciones" : "Ver conversaciones"}
-            aria-label="Ver conversaciones"
-          >
-            <PanelLeft size={18} />
-            <span className="sidebar-toggle-text">Chats</span>
-          </button>
+      {/* Header estilo Gemini App */}
+      <header className="chat-header">
+        <button 
+          className="gemini-menu-btn" 
+          onClick={onToggleSidebar}
+          title={isSidebarOpen ? "Ocultar menú" : "Abrir conversaciones"}
+          aria-label="Abrir menú de conversaciones"
+        >
+          <Menu size={20} />
+        </button>
 
-          <div className="chat-header-title">
-            {isEditingTitle ? (
-              <input
-                type="text"
-                value={titleText}
-                onChange={e => setTitleText(e.target.value)}
-                onBlur={handleTitleSubmit}
-                onKeyDown={e => e.key === 'Enter' && handleTitleSubmit()}
-                autoFocus
-                style={{
-                  background: '#161F2E',
-                  border: '1px solid var(--border-focus)',
-                  color: 'var(--text-main)',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  maxWidth: '100%'
-                }}
-              />
-            ) : (
-              <span
-                onClick={() => setIsEditingTitle(true)}
-                style={{ cursor: 'pointer' }}
-                title="Haz clic para renombrar"
-              >
-                {session?.title || 'Conversación'}
-              </span>
-            )}
-          </div>
+        <div className="chat-header-center">
+          <span className="app-title-badge">
+            <Sparkles size={15} style={{ color: 'var(--gold)' }} />
+            <span>YieldChat</span>
+          </span>
+          {session?.title && session.title !== 'Nueva Conversación' && (
+            <>
+              <span className="chat-title-separator">/</span>
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={titleText}
+                  onChange={e => setTitleText(e.target.value)}
+                  onBlur={handleTitleSubmit}
+                  onKeyDown={e => e.key === 'Enter' && handleTitleSubmit()}
+                  autoFocus
+                  style={{
+                    background: '#161F2E',
+                    border: '1px solid var(--border-focus)',
+                    color: 'var(--text-main)',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    outline: 'none',
+                    maxWidth: '180px'
+                  }}
+                />
+              ) : (
+                <span
+                  className="chat-header-session-title"
+                  onClick={() => setIsEditingTitle(true)}
+                  title="Haz clic para renombrar"
+                >
+                  {session.title}
+                </span>
+              )}
+            </>
+          )}
         </div>
 
-        <div className="chat-header-right">
-          <button
-            className="header-new-chat-btn"
-            onClick={() => onNewChat?.()}
-            title="Iniciar nueva conversación"
-          >
-            <Plus size={15} />
-            <span className="header-new-chat-text">Nuevo</span>
-          </button>
-        </div>
-      </div>
+        <button
+          className="gemini-new-btn"
+          onClick={() => onNewChat?.()}
+          title="Nueva conversación"
+          aria-label="Nueva conversación"
+        >
+          <SquarePen size={19} />
+        </button>
+      </header>
 
       {/* Messages List */}
-      <div className="messages-container">
+      <div className="messages-container" ref={messagesContainerRef}>
         {displayMessages.length === 0 ? (
           <div className="empty-state-wrapper">
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', boxShadow: '0 0 16px var(--gold-glow)' }}>

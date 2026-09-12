@@ -7,14 +7,56 @@ import MemoryModal from './components/MemoryModal'
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 export default function App() {
-  const [sessions, setSessions] = useState([])
-  const [folders, setFolders] = useState([])
-  const [activeSessionId, setActiveSessionId] = useState(null)
-  const [activeSession, setActiveSession] = useState(null)
-  const [messages, setMessages] = useState([])
+  // Inicializar sesiones y conversación desde localStorage para carga inmediata en móvil (0 ms)
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const cached = localStorage.getItem('yieldchat_cached_sessions')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [folders, setFolders] = useState(() => {
+    try {
+      const cached = localStorage.getItem('yieldchat_cached_folders')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    try {
+      return localStorage.getItem('yieldchat_active_session_id') || null
+    } catch {
+      return null
+    }
+  })
+  const [activeSession, setActiveSession] = useState(() => {
+    try {
+      const cached = localStorage.getItem('yieldchat_cached_active_session')
+      return cached ? JSON.parse(cached) : null
+    } catch {
+      return null
+    }
+  })
+  const [messages, setMessages] = useState(() => {
+    try {
+      const cached = localStorage.getItem('yieldchat_cached_active_session')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        return parsed?.messages || []
+      }
+      return []
+    } catch {
+      return []
+    }
+  })
   const [streamingMessage, setStreamingMessage] = useState('')
   const [currentTool, setCurrentTool] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+  const [sessionsError, setSessionsError] = useState(false)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [status, setStatus] = useState(null)
   const [insights, setInsights] = useState([])
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
@@ -79,40 +121,83 @@ export default function App() {
       const res = await fetch(`${API_BASE}/folders`)
       const data = await res.json()
       setFolders(data)
+      try {
+        localStorage.setItem('yieldchat_cached_folders', JSON.stringify(data))
+      } catch (e) {}
     } catch (e) {
       console.error('Error fetching folders:', e)
     }
   }
 
-  const loadSessions = async () => {
+  const loadSessions = async (retryCount = 0) => {
     try {
+      setSessionsError(false)
+      setIsLoadingSessions(prev => sessions.length === 0 ? true : prev)
       const res = await fetch(`${API_BASE}/sessions`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setSessions(data)
-      if (data.length > 0 && !activeSessionId) {
-        selectSession(data[0].id)
+      setIsLoadingSessions(false)
+      setSessionsError(false)
+
+      try {
+        localStorage.setItem('yieldchat_cached_sessions', JSON.stringify(data))
+      } catch (e) {}
+
+      // Si hay sesiones, seleccionar la última activa o la primera de la lista
+      const savedActiveId = localStorage.getItem('yieldchat_active_session_id')
+      const targetId = (savedActiveId && data.some(s => s.id === savedActiveId))
+        ? savedActiveId
+        : (data.length > 0 ? data[0].id : null)
+
+      if (targetId) {
+        // Cargar conversación si no hay mensajes o es distinta
+        if (!activeSessionId || activeSessionId !== targetId || messages.length === 0) {
+          selectSession(targetId, false)
+        }
       } else if (data.length === 0) {
         handleNewChat()
       }
     } catch (e) {
       console.error('Error loading sessions:', e)
+      // Si el servidor de Render está despertando del modo reposo, reintentar automáticamente
+      if (retryCount < 4) {
+        setTimeout(() => loadSessions(retryCount + 1), 3500)
+      } else {
+        setIsLoadingSessions(false)
+        if (sessions.length === 0) {
+          setSessionsError(true)
+        }
+      }
     }
   }
 
-  const selectSession = async (sessionId) => {
+  const selectSession = async (sessionId, closeSidebarOnMobile = true) => {
     setActiveSessionId(sessionId)
+    try {
+      localStorage.setItem('yieldchat_active_session_id', sessionId)
+    } catch (e) {}
+
     setStreamingMessage('')
     setCurrentTool(null)
-    if (typeof window !== 'undefined' && window.innerWidth <= 900) {
+    if (closeSidebarOnMobile && typeof window !== 'undefined' && window.innerWidth <= 900) {
       setIsSidebarOpen(false)
     }
+
+    setIsLoadingMessages(true)
     try {
       const res = await fetch(`${API_BASE}/sessions/${sessionId}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setActiveSession(data)
       setMessages(data.messages || [])
+      setIsLoadingMessages(false)
+      try {
+        localStorage.setItem('yieldchat_cached_active_session', JSON.stringify(data))
+      } catch (e) {}
     } catch (e) {
       console.error('Error fetching session:', e)
+      setIsLoadingMessages(false)
       toast.error('Error al cargar la conversación')
     }
   }
@@ -501,6 +586,9 @@ export default function App() {
         status={status}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        isLoadingSessions={isLoadingSessions}
+        sessionsError={sessionsError}
+        onRetryLoadSessions={() => loadSessions()}
       />
 
       <ChatArea
@@ -509,6 +597,7 @@ export default function App() {
         streamingMessage={streamingMessage}
         currentTool={currentTool}
         loading={loading}
+        isLoadingMessages={isLoadingMessages}
         onSendMessage={handleSendMessage}
         onUpdateTitle={handleUpdateTitle}
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}

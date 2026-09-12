@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw } from 'lucide-react'
 import MessageItem from './MessageItem'
 
 const QUICK_PROMPTS = [
@@ -23,6 +23,7 @@ export default function ChatArea({
   streamingMessage,
   currentTool,
   loading,
+  isLoadingMessages = false,
   onSendMessage,
   onUpdateTitle,
   onToggleSidebar,
@@ -132,7 +133,15 @@ export default function ChatArea({
 
       {/* Messages List */}
       <div className="messages-container" ref={messagesContainerRef}>
-        {displayMessages.length === 0 ? (
+        {isLoadingMessages && displayMessages.length === 0 ? (
+          <div className="empty-state-wrapper">
+            <RefreshCw size={28} className="spin-icon" style={{ color: 'var(--gold)', margin: '0 auto 14px auto' }} />
+            <h2 style={{ fontSize: '1.15rem', color: '#fff', marginBottom: 8, fontWeight: 600 }}>Cargando conversación...</h2>
+            <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+              Recuperando historial y contexto estratégico...
+            </p>
+          </div>
+        ) : displayMessages.length === 0 ? (
           <div className="empty-state-wrapper">
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', boxShadow: '0 0 16px var(--gold-glow)' }}>
               <Bot size={26} />

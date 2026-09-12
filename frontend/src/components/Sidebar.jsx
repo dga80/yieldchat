@@ -50,7 +50,10 @@ export default function Sidebar({
   syncStatus,
   status,
   isOpen,
-  onClose
+  onClose,
+  isLoadingSessions = false,
+  sessionsError = false,
+  onRetryLoadSessions
 }) {
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -310,7 +313,29 @@ export default function Sidebar({
 
         {/* Sessions & Folders Tree */}
         <div className="session-list custom-scrollbar">
-          {viewMode === 'date' ? (
+          {isLoadingSessions && sessions.length === 0 ? (
+            <div className="sidebar-status-card">
+              <RefreshCw size={18} className="spin-icon" style={{ color: 'var(--gold)' }} />
+              <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>Cargando conversaciones...</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'center' }}>
+                Conectando con el servidor en la nube...
+              </span>
+            </div>
+          ) : sessionsError && sessions.length === 0 ? (
+            <div className="sidebar-status-card error">
+              <span style={{ fontSize: '13px', color: '#F87171', fontWeight: 600 }}>Servidor no disponible</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'center' }}>
+                El servidor en la nube podría estar iniciando o suspendido.
+              </span>
+              <button 
+                type="button" 
+                className="sidebar-retry-btn"
+                onClick={onRetryLoadSessions}
+              >
+                <RefreshCw size={12} /> Reintentar ahora
+              </button>
+            </div>
+          ) : viewMode === 'date' ? (
             /* 1. Vista Clasificada por Fecha (Cronológica) */
             dateGroups.length === 0 ? (
               <div className="sidebar-empty-search">

@@ -70,7 +70,7 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(null)
   const abortControllerRef = useRef(null)
 
-  // 1. Initial Load: Sessions, Folders, Memory, Status and Sync
+  // 1. Initial Load: Sessions, Folders, Memory, Status and Multi-device Sync
   useEffect(() => {
     fetchStatus()
     fetchMemory()
@@ -78,12 +78,29 @@ export default function App() {
     fetchFolders()
     loadSessions()
 
-    // Intervalo de comprobación de estado de sincronización cada 20 segundos
+    // Sincronización automática periódica cada 25 segundos (para detectar chats creados en otros dispositivos)
     const syncInterval = setInterval(() => {
       fetchSyncStatus()
-    }, 20000)
+      loadSessions()
+    }, 25000)
 
-    return () => clearInterval(syncInterval)
+    // Sincronización inmediata al volver a la app o cambiar de ventana/pestaña
+    const handleSyncOnResume = () => {
+      if (document.visibilityState === 'visible') {
+        loadSessions()
+        fetchFolders()
+        fetchSyncStatus()
+      }
+    }
+
+    window.addEventListener('focus', handleSyncOnResume)
+    document.addEventListener('visibilitychange', handleSyncOnResume)
+
+    return () => {
+      clearInterval(syncInterval)
+      window.removeEventListener('focus', handleSyncOnResume)
+      document.removeEventListener('visibilitychange', handleSyncOnResume)
+    }
   }, [])
 
   const fetchStatus = async () => {

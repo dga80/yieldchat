@@ -183,6 +183,14 @@ class InsightRequest(BaseModel):
 
 # ── Rutas de Estado y Modelo ──────────────────────────────────────────────────
 
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "message": "YieldChat API Server is running",
+        "version": "1.0.0"
+    }
+
 @app.get("/api/status")
 def get_status():
     active_model = gemini_agent.get_active_model_name()

@@ -17,8 +17,11 @@ import {
   Edit2,
   FolderInput,
   Search,
-  Check
+  Check,
+  Clock,
+  Calendar
 } from 'lucide-react'
+import { groupSessionsByDate, formatSessionDate } from '../utils/dateUtils'
 
 const FOLDER_COLORS = [
   '#F59E0B', // Gold / Amber
@@ -49,6 +52,21 @@ export default function Sidebar({
   isOpen,
   onClose
 }) {
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('yieldchat_sidebar_view') || 'date'
+    } catch {
+      return 'date'
+    }
+  })
+  const [collapsedDateGroups, setCollapsedDateGroups] = useState(() => {
+    try {
+      const saved = localStorage.getItem('yieldchat_collapsed_date_groups')
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
   const [collapsedFolders, setCollapsedFolders] = useState(() => {
     try {
       const saved = localStorage.getItem('yieldchat_collapsed_folders')
@@ -80,6 +98,27 @@ export default function Sidebar({
     window.addEventListener('click', handleClickOutside)
     return () => window.removeEventListener('click', handleClickOutside)
   }, [])
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('yieldchat_sidebar_view', mode)
+    } catch (e) {
+      console.error('Error saving sidebar view mode', e)
+    }
+  }
+
+  const toggleDateGroupCollapse = (category) => {
+    setCollapsedDateGroups(prev => {
+      const next = { ...prev, [category]: !prev[category] }
+      try {
+        localStorage.setItem('yieldchat_collapsed_date_groups', JSON.stringify(next))
+      } catch (e) {
+        console.error('Error saving collapsed date groups', e)
+      }
+      return next
+    })
+  }
 
   const toggleFolderCollapse = (folderId) => {
     setCollapsedFolders(prev => {
@@ -125,6 +164,9 @@ export default function Sidebar({
   const filteredSessions = searchQuery.trim()
     ? sessions.filter(s => s.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : sessions
+
+  // Agrupación cronológica por fechas (clasificación automática)
+  const dateGroups = groupSessionsByDate(filteredSessions)
 
   // Agrupación por carpetas
   const uncategorizedSessions = filteredSessions.filter(
@@ -244,106 +286,219 @@ export default function Sidebar({
           </div>
         )}
 
+        {/* Selector de Modo de Vista: Por Fecha (por defecto) vs Carpetas */}
+        <div className="sidebar-view-selector">
+          <button 
+            type="button"
+            className={`view-mode-btn ${viewMode === 'date' ? 'active' : ''}`}
+            onClick={() => handleSetViewMode('date')}
+            title="Ver conversaciones clasificadas por fecha reciente"
+          >
+            <Clock size={12} />
+            <span>Por Fecha</span>
+          </button>
+          <button 
+            type="button"
+            className={`view-mode-btn ${viewMode === 'folder' ? 'active' : ''}`}
+            onClick={() => handleSetViewMode('folder')}
+            title="Ver conversaciones organizadas por carpetas"
+          >
+            <Folder size={12} />
+            <span>Carpetas {folders.length > 0 ? `(${folders.length})` : ''}</span>
+          </button>
+        </div>
+
         {/* Sessions & Folders Tree */}
         <div className="session-list custom-scrollbar">
-          {/* 1. Carpetas definidas */}
-          {folders.map(folder => {
-            const folderSessions = filteredSessions.filter(s => s.folder_id === folder.id)
-            const isCollapsed = Boolean(collapsedFolders[folder.id])
-            const isEditing = editingFolderId === folder.id
-
-            return (
-              <div key={folder.id} className="folder-group">
-                {/* Folder Header */}
-                <div 
-                  className="folder-header"
-                  onClick={() => toggleFolderCollapse(folder.id)}
-                >
-                  <div className="folder-header-left">
-                    <span className="folder-chevron">
-                      {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                    </span>
-                    <span className="folder-icon" style={{ color: folder.color || 'var(--gold)' }}>
-                      {isCollapsed ? <Folder size={15} /> : <FolderOpen size={15} />}
-                    </span>
-
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        className="folder-edit-input"
-                        value={editingFolderName}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => setEditingFolderName(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleSaveEditFolder(folder.id, folder.color)
-                          if (e.key === 'Escape') setEditingFolderId(null)
-                        }}
-                        onBlur={() => handleSaveEditFolder(folder.id, folder.color)}
-                        autoFocus
-                      />
-                    ) : (
-                      <span className="folder-title" title={folder.name}>
-                        {folder.name}
-                      </span>
-                    )}
-
-                    <span className="folder-count">
-                      {folderSessions.length}
-                    </span>
-                  </div>
-
-                  <div className="folder-header-right" onClick={e => e.stopPropagation()}>
-                    <button
-                      className="folder-action-btn"
-                      title="Nuevo chat en esta carpeta"
-                      onClick={() => onNewChat(folder.id)}
+          {viewMode === 'date' ? (
+            /* 1. Vista Clasificada por Fecha (Cronológica) */
+            dateGroups.length === 0 ? (
+              <div className="sidebar-empty-search">
+                {searchQuery ? `No se encontraron conversaciones con "${searchQuery}"` : 'No hay conversaciones aún.'}
+              </div>
+            ) : (
+              dateGroups.map(group => {
+                const isCollapsed = Boolean(collapsedDateGroups[group.category])
+                return (
+                  <div key={group.category} className="date-group">
+                    <div 
+                      className="date-group-header"
+                      onClick={() => toggleDateGroupCollapse(group.category)}
                     >
-                      <Plus size={13} />
-                    </button>
-
-                    <div className="dropdown-wrapper">
-                      <button
-                        className="folder-action-btn dropdown-trigger"
-                        title="Opciones de carpeta"
-                        onClick={() => setActiveFolderMenuId(activeFolderMenuId === folder.id ? null : folder.id)}
-                      >
-                        <MoreVertical size={13} />
-                      </button>
-
-                      {activeFolderMenuId === folder.id && (
-                        <div className="floating-menu folder-action-menu">
-                          <button 
-                            className="floating-menu-item"
-                            onClick={(e) => handleStartEditFolder(folder, e)}
-                          >
-                            <Edit2 size={13} />
-                            <span>Renombrar</span>
-                          </button>
-                          <button 
-                            className="floating-menu-item delete"
-                            onClick={() => {
-                              setActiveFolderMenuId(null)
-                              onDeleteFolder(folder.id)
-                            }}
-                          >
-                            <Trash2 size={13} />
-                            <span>Eliminar carpeta</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Folder Sessions List */}
-                {!isCollapsed && (
-                  <div className="folder-sessions-container">
-                    {folderSessions.length === 0 ? (
-                      <div className="folder-empty-hint">
-                        Sin conversaciones aquí.
+                      <div className="date-group-header-left">
+                        <span className="folder-chevron">
+                          {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                        </span>
+                        <Calendar size={13} className="date-group-icon" />
+                        <span className="date-group-title">{group.category}</span>
+                        <span className="folder-count">{group.sessions.length}</span>
                       </div>
-                    ) : (
-                      folderSessions.map(s => (
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="date-group-sessions">
+                        {group.sessions.map(s => (
+                          <SessionRow
+                            key={s.id}
+                            session={s}
+                            isActive={s.id === activeSessionId}
+                            folders={folders}
+                            activeMoveMenuSessionId={activeMoveMenuSessionId}
+                            setActiveMoveMenuSessionId={setActiveMoveMenuSessionId}
+                            onSelectSession={onSelectSession}
+                            onDeleteSession={onDeleteSession}
+                            onMoveSessionToFolder={onMoveSessionToFolder}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )
+          ) : (
+            /* 2. Vista Agrupada por Carpetas */
+            <>
+              {folders.map(folder => {
+                const folderSessions = filteredSessions.filter(s => s.folder_id === folder.id)
+                const isCollapsed = Boolean(collapsedFolders[folder.id])
+                const isEditing = editingFolderId === folder.id
+
+                return (
+                  <div key={folder.id} className="folder-group">
+                    {/* Folder Header */}
+                    <div 
+                      className="folder-header"
+                      onClick={() => toggleFolderCollapse(folder.id)}
+                    >
+                      <div className="folder-header-left">
+                        <span className="folder-chevron">
+                          {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        </span>
+                        <span className="folder-icon" style={{ color: folder.color || 'var(--gold)' }}>
+                          {isCollapsed ? <Folder size={15} /> : <FolderOpen size={15} />}
+                        </span>
+
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            className="folder-edit-input"
+                            value={editingFolderName}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => setEditingFolderName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleSaveEditFolder(folder.id, folder.color)
+                              if (e.key === 'Escape') setEditingFolderId(null)
+                            }}
+                            onBlur={() => handleSaveEditFolder(folder.id, folder.color)}
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="folder-title" title={folder.name}>
+                            {folder.name}
+                          </span>
+                        )}
+
+                        <span className="folder-count">
+                          {folderSessions.length}
+                        </span>
+                      </div>
+
+                      <div className="folder-header-right" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="folder-action-btn"
+                          title="Nuevo chat en esta carpeta"
+                          onClick={() => onNewChat(folder.id)}
+                        >
+                          <Plus size={13} />
+                        </button>
+
+                        <div className="dropdown-wrapper">
+                          <button
+                            className="folder-action-btn dropdown-trigger"
+                            title="Opciones de carpeta"
+                            onClick={() => setActiveFolderMenuId(activeFolderMenuId === folder.id ? null : folder.id)}
+                          >
+                            <MoreVertical size={13} />
+                          </button>
+
+                          {activeFolderMenuId === folder.id && (
+                            <div className="floating-menu folder-action-menu">
+                              <button 
+                                className="floating-menu-item"
+                                onClick={(e) => handleStartEditFolder(folder, e)}
+                              >
+                                <Edit2 size={13} />
+                                <span>Renombrar</span>
+                              </button>
+                              <button 
+                                className="floating-menu-item delete"
+                                onClick={() => {
+                                  setActiveFolderMenuId(null)
+                                  onDeleteFolder(folder.id)
+                                }}
+                              >
+                                <Trash2 size={13} />
+                                <span>Eliminar carpeta</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Folder Sessions List */}
+                    {!isCollapsed && (
+                      <div className="folder-sessions-container">
+                        {folderSessions.length === 0 ? (
+                          <div className="folder-empty-hint">
+                            Sin conversaciones aquí.
+                          </div>
+                        ) : (
+                          folderSessions.map(s => (
+                            <SessionRow
+                              key={s.id}
+                              session={s}
+                              isActive={s.id === activeSessionId}
+                              folders={folders}
+                              activeMoveMenuSessionId={activeMoveMenuSessionId}
+                              setActiveMoveMenuSessionId={setActiveMoveMenuSessionId}
+                              onSelectSession={onSelectSession}
+                              onDeleteSession={onDeleteSession}
+                              onMoveSessionToFolder={onMoveSessionToFolder}
+                            />
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* 2. Sección Sin Clasificar */}
+              {(uncategorizedSessions.length > 0 || folders.length === 0) && (
+                <div className="folder-group uncategorized-group">
+                  {folders.length > 0 && (
+                    <div 
+                      className="folder-header uncategorized-header"
+                      onClick={() => toggleFolderCollapse('uncategorized')}
+                    >
+                      <div className="folder-header-left">
+                        <span className="folder-chevron">
+                          {collapsedFolders['uncategorized'] ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        </span>
+                        <span className="folder-icon" style={{ color: 'var(--text-dim)' }}>
+                          <Folder size={15} />
+                        </span>
+                        <span className="folder-title">Sin clasificar</span>
+                        <span className="folder-count">{uncategorizedSessions.length}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!folders.length || !collapsedFolders['uncategorized']) && (
+                    <div className="folder-sessions-container">
+                      {uncategorizedSessions.map(s => (
                         <SessionRow
                           key={s.id}
                           session={s}
@@ -355,53 +510,12 @@ export default function Sidebar({
                           onDeleteSession={onDeleteSession}
                           onMoveSessionToFolder={onMoveSessionToFolder}
                         />
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          {/* 2. Sección Sin Clasificar */}
-          {(uncategorizedSessions.length > 0 || folders.length === 0) && (
-            <div className="folder-group uncategorized-group">
-              {folders.length > 0 && (
-                <div 
-                  className="folder-header uncategorized-header"
-                  onClick={() => toggleFolderCollapse('uncategorized')}
-                >
-                  <div className="folder-header-left">
-                    <span className="folder-chevron">
-                      {collapsedFolders['uncategorized'] ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                    </span>
-                    <span className="folder-icon" style={{ color: 'var(--text-dim)' }}>
-                      <Folder size={15} />
-                    </span>
-                    <span className="folder-title">Sin clasificar</span>
-                    <span className="folder-count">{uncategorizedSessions.length}</span>
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
-
-              {(!folders.length || !collapsedFolders['uncategorized']) && (
-                <div className="folder-sessions-container">
-                  {uncategorizedSessions.map(s => (
-                    <SessionRow
-                      key={s.id}
-                      session={s}
-                      isActive={s.id === activeSessionId}
-                      folders={folders}
-                      activeMoveMenuSessionId={activeMoveMenuSessionId}
-                      setActiveMoveMenuSessionId={setActiveMoveMenuSessionId}
-                      onSelectSession={onSelectSession}
-                      onDeleteSession={onDeleteSession}
-                      onMoveSessionToFolder={onMoveSessionToFolder}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            </>
           )}
 
           {/* Empty state when searching */}
@@ -483,15 +597,38 @@ function SessionRow({
   onMoveSessionToFolder
 }) {
   const isMoveMenuOpen = activeMoveMenuSessionId === session.id
+  const dateFormatted = formatSessionDate(session.updated_at || session.created_at)
 
   return (
     <div
       className={`session-item ${isActive ? 'active' : ''}`}
       onClick={() => onSelectSession(session.id)}
     >
-      <span className="session-title" title={session.title}>
-        {session.title}
-      </span>
+      <div className="session-item-content">
+        <span className="session-title" title={session.title}>
+          {session.title}
+        </span>
+        <div className="session-meta">
+          {dateFormatted && (
+            <span className="session-date" title={`Última actividad: ${dateFormatted}`}>
+              <Clock size={10} className="session-date-icon" />
+              <span>{dateFormatted}</span>
+            </span>
+          )}
+          {session.folder_name && (
+            <span
+              className="session-folder-tag"
+              style={{
+                borderColor: `${session.folder_color || '#F59E0B'}55`,
+                color: session.folder_color || '#F59E0B'
+              }}
+              title={`Carpeta: ${session.folder_name}`}
+            >
+              {session.folder_name}
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="session-item-actions" onClick={e => e.stopPropagation()}>
         {/* Move to Folder Button */}

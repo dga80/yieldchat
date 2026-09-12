@@ -304,8 +304,15 @@ export default function App() {
 
     displayText += text || (attachments.length > 0 ? 'Analiza los archivos adjuntos.' : '')
 
-    const userMsg = { role: 'user', content: displayText, created_at: new Date().toISOString() }
+    const nowIso = new Date().toISOString()
+    const userMsg = { role: 'user', content: displayText, created_at: nowIso }
     setMessages(prev => [...prev, userMsg])
+    setSessions(prev => {
+      const current = prev.find(s => s.id === activeSessionId)
+      if (!current) return prev
+      const updatedCurrent = { ...current, updated_at: nowIso }
+      return [updatedCurrent, ...prev.filter(s => s.id !== activeSessionId)]
+    })
     setLoading(true)
     setStreamingMessage('')
     setCurrentTool(null)

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus } from 'lucide-react'
 import MessageItem from './MessageItem'
 
 const QUICK_PROMPTS = [
@@ -26,7 +26,9 @@ export default function ChatArea({
   onSendMessage,
   onUpdateTitle,
   onToggleSidebar,
-  onStop
+  onNewChat,
+  onStop,
+  isSidebarOpen
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleText, setTitleText] = useState('')
@@ -66,15 +68,17 @@ export default function ChatArea({
     <main className="chat-main">
       {/* Header */}
       <div className="chat-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+        <div className="chat-header-left">
           <button 
-            className="mobile-menu-btn" 
+            className="sidebar-toggle-btn" 
             onClick={onToggleSidebar}
-            title="Abrir menú"
-            aria-label="Abrir menú"
+            title={isSidebarOpen ? "Ocultar menú de conversaciones" : "Ver conversaciones"}
+            aria-label="Ver conversaciones"
           >
-            <Menu size={20} />
+            <PanelLeft size={18} />
+            <span className="sidebar-toggle-text">Chats</span>
           </button>
+
           <div className="chat-header-title">
             {isEditingTitle ? (
               <input
@@ -105,6 +109,17 @@ export default function ChatArea({
               </span>
             )}
           </div>
+        </div>
+
+        <div className="chat-header-right">
+          <button
+            className="header-new-chat-btn"
+            onClick={() => onNewChat?.()}
+            title="Iniciar nueva conversación"
+          >
+            <Plus size={15} />
+            <span className="header-new-chat-text">Nuevo</span>
+          </button>
         </div>
       </div>
 

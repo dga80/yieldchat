@@ -18,7 +18,12 @@ export default function App() {
   const [status, setStatus] = useState(null)
   const [insights, setInsights] = useState([])
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 900
+    }
+    return false
+  })
   const [syncing, setSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState(null)
   const abortControllerRef = useRef(null)
@@ -98,7 +103,9 @@ export default function App() {
     setActiveSessionId(sessionId)
     setStreamingMessage('')
     setCurrentTool(null)
-    setIsSidebarOpen(false)
+    if (typeof window !== 'undefined' && window.innerWidth <= 900) {
+      setIsSidebarOpen(false)
+    }
     try {
       const res = await fetch(`${API_BASE}/sessions/${sessionId}`)
       const data = await res.json()
@@ -111,7 +118,9 @@ export default function App() {
   }
 
   const handleNewChat = async (folderId = null) => {
-    setIsSidebarOpen(false)
+    if (typeof window !== 'undefined' && window.innerWidth <= 900) {
+      setIsSidebarOpen(false)
+    }
     try {
       const res = await fetch(`${API_BASE}/sessions`, {
         method: 'POST',
@@ -503,7 +512,9 @@ export default function App() {
         onSendMessage={handleSendMessage}
         onUpdateTitle={handleUpdateTitle}
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        onNewChat={() => handleNewChat()}
         onStop={handleStopChat}
+        isSidebarOpen={isSidebarOpen}
       />
 
       <MemoryModal

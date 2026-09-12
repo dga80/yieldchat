@@ -180,7 +180,7 @@ export default function Sidebar({
         onClick={onClose}
         aria-hidden="true"
       />
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
         {/* Header / Brand */}
         <div className="sidebar-header">
           <div className="app-brand">

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw } from 'lucide-react'
 import MessageItem from './MessageItem'
+import ConnectionBadge from './ConnectionBadge'
 
 const QUICK_PROMPTS = [
   'Generar una miniatura de alto CTR sobre hábitos de riqueza',
@@ -121,14 +122,17 @@ export default function ChatArea({
           )}
         </div>
 
-        <button
-          className="gemini-new-btn"
-          onClick={() => onNewChat?.()}
-          title="Nueva conversación"
-          aria-label="Nueva conversación"
-        >
-          <SquarePen size={19} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ConnectionBadge />
+          <button
+            className="gemini-new-btn"
+            onClick={() => onNewChat?.()}
+            title="Nueva conversación"
+            aria-label="Nueva conversación"
+          >
+            <SquarePen size={19} />
+          </button>
+        </div>
       </header>
 
       {/* Messages List */}

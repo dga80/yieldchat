@@ -257,7 +257,7 @@ async def stream_agent_chat(
     selected_model_name = None
     response = None
 
-    last_err_detail = None
+    failed_attempts = []
     for model_name in candidate_models:
         try:
             # Ejecutar de forma no bloqueante en hilo con timeout de 70s
@@ -269,16 +269,17 @@ async def stream_agent_chat(
             break
         except asyncio.TimeoutError:
             print(f"[GeminiAgent] Timeout (70s) excedido con modelo {model_name}. Intentando fallback...")
-            last_err_detail = f"Timeout en {model_name}"
+            failed_attempts.append(f"{model_name}: Timeout")
             continue
         except Exception as e:
-            last_err_detail = f"{model_name}: {type(e).__name__} - {str(e)[:150]}"
+            failed_attempts.append(f"{model_name}: {type(e).__name__} - {str(e)[:100]}")
             print(f"[GeminiAgent] Fallo con modelo {model_name}: {e}")
             continue
 
     if not response:
-        print(f"[GeminiAgent] Todos los modelos fallaron. Último error: {last_err_detail}")
-        err_msg = f"El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota ({last_err_detail or 'desconocido'}). Por favor, intenta de nuevo en unos segundos."
+        all_failures = " | ".join(failed_attempts)
+        print(f"[GeminiAgent] Todos los modelos fallaron: {all_failures}")
+        err_msg = f"El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota ({all_failures[:300]}). Por favor, intenta de nuevo en unos segundos."
         memory_manager.add_message(session_id, "assistant", err_msg)
         yield {"type": "content", "content": err_msg}
         yield {"type": "done"}

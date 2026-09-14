@@ -243,17 +243,27 @@ def get_diag():
         return {"key_info": key_info, "client_error": str(e), "active_model": active_model}
         
 @app.get("/api/test-chat")
-async def test_chat_endpoint():
+async def test_chat_endpoint(q: str = "hola"):
     test_session_id = f"test-diag-{uuid.uuid4().hex[:6]}"
     memory_manager.create_session(test_session_id, "Test Diag")
     events = []
     try:
-        async for ev in gemini_agent.stream_agent_chat(test_session_id, "hola"):
+        async for ev in gemini_agent.stream_agent_chat(test_session_id, q):
             events.append(ev)
         return {"status": "ok", "events": events}
     except Exception as e:
         import traceback
         return {"status": "exception", "error": str(e), "traceback": traceback.format_exc(), "events": events}
+
+
+@app.get("/api/test-yt")
+def test_yt_endpoint(url: str = "https://youtube.com/@mrwealthlab?si=br5c24WMQllrm_2b"):
+    import youtube_tools
+    try:
+        ch = youtube_tools.analizar_canal(url)
+        return {"status": "ok", "channel": ch}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
 
 
 # ── Rutas de Archivos e Imágenes ──────────────────────────────────────────────

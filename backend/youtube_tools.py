@@ -27,6 +27,18 @@ def analizar_canal(identificador: str) -> Dict[str, Any]:
     yt = _get_youtube_client()
     clean_id = identificador.strip()
     
+    # Si viene como URL completa de YouTube (ej. https://youtube.com/@mrwealthlab?si=...)
+    if "youtube.com" in clean_id or "youtu.be" in clean_id:
+        handle_match = re.search(r'(@[a-zA-Z0-9_.-]+)', clean_id)
+        if handle_match:
+            clean_id = handle_match.group(1)
+        else:
+            ch_match = re.search(r'/(channel/)?(UC[a-zA-Z0-9_-]{22})', clean_id)
+            if ch_match:
+                clean_id = ch_match.group(2)
+            else:
+                clean_id = clean_id.split("?")[0].rstrip("/").split("/")[-1]
+
     # 1. Si es handle (@...)
     if clean_id.startswith("@") or not clean_id.startswith("UC"):
         handle = clean_id.lstrip("@")

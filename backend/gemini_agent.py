@@ -54,9 +54,9 @@ def herramienta_analizar_canal(handle_o_nombre: str) -> dict:
     """Obtiene datos, suscriptores, vistas totales, fecha de creación y descripción de un canal de YouTube."""
     return youtube_tools.analizar_canal(handle_o_nombre)
 
-def herramienta_analizar_videos_velocidad(canal_identificador: str, max_videos: int = 25) -> dict:
-    """Analiza los vídeos de un canal calculando velocidad de vistas por día y Viral Ratio para encontrar los mejores Outliers."""
-    return youtube_tools.analizar_videos_velocidad(canal_identificador, max_videos)
+def herramienta_analizar_videos_velocidad(canal_identificador: str, max_videos: int) -> dict:
+    """Analiza los vídeos de un canal calculando velocidad de vistas por día y Viral Ratio para encontrar los mejores Outliers. Especifica la cantidad de vídeos a evaluar (ej: 25)."""
+    return youtube_tools.analizar_videos_velocidad(canal_identificador, max_videos or 25)
 
 def herramienta_obtener_transcripcion(video_id: str) -> dict:
     """Obtiene la transcripción, el conteo total de palabras y la velocidad de locución (palabras/minuto) de un vídeo."""

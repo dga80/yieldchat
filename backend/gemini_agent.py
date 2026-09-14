@@ -21,24 +21,20 @@ import memory_manager
 
 load_dotenv()
 
-socket.setdefaulttimeout(40)
-
-API_KEY = os.getenv("GEMINI_API_KEY")
-
 FLASH_CANDIDATES = [
     "gemini-3.6-flash",
     "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
-    "gemini-flash-lite-latest",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash",
-    "gemini-flash-latest"
+    "gemini-flash-lite-latest"
 ]
 
+API_KEY = os.getenv("GEMINI_API_KEY")
+
 def _get_client() -> genai.Client:
-    if not API_KEY or API_KEY == "your_gemini_api_key_here":
+    key = os.getenv("GEMINI_API_KEY") or API_KEY
+    if not key or key == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY no está configurada en .env")
-    return genai.Client(api_key=API_KEY)
+    return genai.Client(api_key=key)
 
 
 def get_active_model_name() -> str:
@@ -260,15 +256,15 @@ async def stream_agent_chat(
     failed_attempts = []
     for model_name in candidate_models:
         try:
-            # Ejecutar de forma no bloqueante en hilo con timeout de 70s
+            # Ejecutar de forma no bloqueante en hilo con timeout de 50s
             response = await asyncio.wait_for(
                 asyncio.to_thread(_execute_chat_turn, client, model_name, config, formatted_history, send_payload),
-                timeout=70.0
+                timeout=50.0
             )
             selected_model_name = model_name
             break
         except asyncio.TimeoutError:
-            print(f"[GeminiAgent] Timeout (70s) excedido con modelo {model_name}. Intentando fallback...")
+            print(f"[GeminiAgent] Timeout (50s) excedido con modelo {model_name}. Intentando fallback...")
             failed_attempts.append(f"{model_name}: Timeout")
             continue
         except Exception as e:

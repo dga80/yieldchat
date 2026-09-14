@@ -26,14 +26,13 @@ socket.setdefaulttimeout(40)
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 FLASH_CANDIDATES = [
-    "gemini-flash-latest",
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-flash-lite-latest"
+    "gemini-3.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-flash-latest"
 ]
 
 def _get_client() -> genai.Client:
@@ -258,6 +257,7 @@ async def stream_agent_chat(
     selected_model_name = None
     response = None
 
+    last_err_detail = None
     for model_name in candidate_models:
         try:
             # Ejecutar de forma no bloqueante en hilo con timeout de 70s
@@ -269,16 +269,15 @@ async def stream_agent_chat(
             break
         except asyncio.TimeoutError:
             print(f"[GeminiAgent] Timeout (70s) excedido con modelo {model_name}. Intentando fallback...")
+            last_err_detail = f"Timeout en {model_name}"
             continue
         except Exception as e:
-            err_str = str(e).lower()
-            if any(k in err_str for k in ["quota", "429", "not found", "404", "deadline", "unavailable", "resource_exhausted", "overloaded", "503", "500", "internal", "unsupported"]):
-                continue
-            else:
-                # Si es otro error de API, también intentamos siguiente candidato
-                continue
+            last_err_detail = f"{model_name}: {type(e).__name__} - {str(e)[:150]}"
+            print(f"[GeminiAgent] Fallo con modelo {model_name}: {e}")
+            continue
 
     if not response:
+        print(f"[GeminiAgent] Todos los modelos fallaron. Último error: {last_err_detail}")
         err_msg = "El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota. Por favor, intenta de nuevo en unos segundos."
         memory_manager.add_message(session_id, "assistant", err_msg)
         yield {"type": "content", "content": err_msg}

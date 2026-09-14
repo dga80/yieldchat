@@ -215,6 +215,40 @@ def get_status():
     }
 
 
+@app.get("/api/diag")
+def get_diag():
+    active_model = gemini_agent.get_active_model_name()
+    key = os.getenv("GEMINI_API_KEY", "")
+    key_info = {
+        "configured": bool(key and key != "your_gemini_api_key_here"),
+        "length": len(key),
+        "prefix": key[:8] if key else "",
+        "suffix": key[-4:] if key else "",
+        "has_newline": "\n" in key or "\r" in key,
+        "has_quotes": key.startswith(('"', "'"))
+    }
+    
+    test_results = {}
+    try:
+        client = gemini_agent._get_client()
+        for m in ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
+            try:
+                chat = client.chats.create(model=m)
+                resp = chat.send_message("ping")
+                test_results[m] = {"status": "ok", "text": resp.text[:30] if hasattr(resp, 'text') else "ok"}
+                break
+            except Exception as ex:
+                test_results[m] = {"status": "error", "type": type(ex).__name__, "message": str(ex)[:200]}
+    except Exception as e:
+        return {"key_info": key_info, "client_error": str(e), "active_model": active_model}
+        
+    return {
+        "key_info": key_info,
+        "test_results": test_results,
+        "active_model": active_model
+    }
+
+
 # ── Rutas de Archivos e Imágenes ──────────────────────────────────────────────
 
 @app.get("/api/images/{filename}")

@@ -278,7 +278,7 @@ async def stream_agent_chat(
 
     if not response:
         print(f"[GeminiAgent] Todos los modelos fallaron. Último error: {last_err_detail}")
-        err_msg = "El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota. Por favor, intenta de nuevo en unos segundos."
+        err_msg = f"El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota ({last_err_detail or 'desconocido'}). Por favor, intenta de nuevo en unos segundos."
         memory_manager.add_message(session_id, "assistant", err_msg)
         yield {"type": "content", "content": err_msg}
         yield {"type": "done"}

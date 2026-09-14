@@ -242,11 +242,18 @@ def get_diag():
     except Exception as e:
         return {"key_info": key_info, "client_error": str(e), "active_model": active_model}
         
-    return {
-        "key_info": key_info,
-        "test_results": test_results,
-        "active_model": active_model
-    }
+@app.get("/api/test-chat")
+async def test_chat_endpoint():
+    test_session_id = f"test-diag-{uuid.uuid4().hex[:6]}"
+    memory_manager.create_session(test_session_id, "Test Diag")
+    events = []
+    try:
+        async for ev in gemini_agent.stream_agent_chat(test_session_id, "hola"):
+            events.append(ev)
+        return {"status": "ok", "events": events}
+    except Exception as e:
+        import traceback
+        return {"status": "exception", "error": str(e), "traceback": traceback.format_exc(), "events": events}
 
 
 # ── Rutas de Archivos e Imágenes ──────────────────────────────────────────────

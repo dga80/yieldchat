@@ -242,6 +242,13 @@ def get_diag():
     except Exception as e:
         return {"key_info": key_info, "client_error": str(e), "active_model": active_model}
         
+    import google.genai as gai
+    return {
+        "key_info": key_info,
+        "test_results": test_results,
+        "active_model": active_model,
+        "google_genai_version": getattr(gai, "__version__", "unknown")
+    }
 @app.get("/api/test-chat")
 async def test_chat_endpoint(q: str = "hola"):
     test_session_id = f"test-diag-{uuid.uuid4().hex[:6]}"

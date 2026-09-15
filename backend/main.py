@@ -202,6 +202,7 @@ def root():
 
 @app.get("/api/status")
 def get_status():
+    import google.genai as gai
     active_model = gemini_agent.get_active_model_name()
     has_yt_key = bool(os.getenv("YOUTUBE_API_KEY") and os.getenv("YOUTUBE_API_KEY") != "your_youtube_api_key_here")
     has_gemini_key = bool(os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_API_KEY") != "your_gemini_api_key_here")
@@ -211,6 +212,7 @@ def get_status():
         "active_gemini_model": active_model,
         "youtube_api_configured": has_yt_key,
         "gemini_api_configured": has_gemini_key,
+        "genai_version": getattr(gai, "__version__", "unknown"),
         "app_name": "YieldChat"
     }
 

@@ -66,10 +66,23 @@ sync_state = {
 def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo plazo e historial") -> dict:
     """Ejecuta la sincronización Git de memoria y chats."""
     try:
+        # Configurar identidad Git y entorno seguro (necesario en Render / entornos sin git config global)
+        env = os.environ.copy()
+        user_name = os.getenv("GIT_USER_NAME", "YieldChat Bot")
+        user_email = os.getenv("GIT_USER_EMAIL", "yieldchat-bot@users.noreply.github.com")
+        env["GIT_AUTHOR_NAME"] = user_name
+        env["GIT_AUTHOR_EMAIL"] = user_email
+        env["GIT_COMMITTER_NAME"] = user_name
+        env["GIT_COMMITTER_EMAIL"] = user_email
+
+        subprocess.run(["git", "config", "user.name", user_name], cwd=REPO_DIR, env=env, check=False)
+        subprocess.run(["git", "config", "user.email", user_email], cwd=REPO_DIR, env=env, check=False)
+
         # 1. Stage memory files
         subprocess.run(
             ["git", "add", "backend/learned_insights.json", "backend/chat_history.db"],
             cwd=REPO_DIR,
+            env=env,
             check=True
         )
         
@@ -77,33 +90,93 @@ def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo pl
         status_res = subprocess.run(
             ["git", "status", "--porcelain", "backend/learned_insights.json", "backend/chat_history.db"],
             cwd=REPO_DIR,
+            env=env,
             capture_output=True,
             text=True,
             check=True
         )
         
-        if not status_res.stdout.strip():
+        has_local_changes = bool(status_res.stdout.strip())
+
+        # 3. Commit si hay cambios locales
+        if has_local_changes:
+            subprocess.run(
+                ["git", "commit", "-m", commit_msg],
+                cwd=REPO_DIR,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+        # Comprobar si hay commits pendientes de subir al origen
+        unpushed_res = subprocess.run(
+            ["git", "log", "origin/main..HEAD", "--oneline"],
+            cwd=REPO_DIR,
+            env=env,
+            capture_output=True,
+            text=True
+        )
+        has_unpushed = bool(unpushed_res.stdout.strip()) if unpushed_res.returncode == 0 else False
+
+        if not has_local_changes and not has_unpushed:
             sync_state["last_synced_at"] = datetime.now(timezone.utc).isoformat()
             sync_state["last_status"] = "ok"
             sync_state["last_message"] = "Al día con GitHub"
             return {"status": "ok", "synced": False, "message": "GitHub ya está al día con la última memoria."}
             
-        # 3. Commit and push
-        subprocess.run(
-            ["git", "commit", "-m", commit_msg],
-            cwd=REPO_DIR,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        subprocess.run(
-            ["git", "push", "origin", "main"],
-            cwd=REPO_DIR,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        # 4. Push: soportar GITHUB_TOKEN si está configurado en variables de entorno (p.ej. en Render)
+        github_token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or os.getenv("GIT_TOKEN")
+        push_target = "origin"
+
+        if github_token:
+            origin_url = "https://github.com/dga80/yieldchat.git"
+            try:
+                out = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=REPO_DIR, text=True).strip()
+                if out:
+                    origin_url = out
+            except Exception:
+                pass
+
+            if "github.com" in origin_url:
+                clean_path = origin_url.split("github.com/")[-1].lstrip("/")
+                push_target = f"https://x-access-token:{github_token}@github.com/{clean_path}"
+            else:
+                push_target = origin_url
+
+        # Intentar rebase suave por si hay commits remotos nuevos antes de subir
+        try:
+            subprocess.run(
+                ["git", "pull", "--rebase", push_target, "main"],
+                cwd=REPO_DIR,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False
+            )
+        except Exception:
+            pass
+
+        try:
+            subprocess.run(
+                ["git", "push", push_target, "main"],
+                cwd=REPO_DIR,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True
+            )
+        except subprocess.CalledProcessError as push_err:
+            err_text = push_err.stderr.strip() if push_err.stderr else str(push_err)
+            if github_token:
+                err_text = err_text.replace(github_token, "***")
+            if not github_token and ("could not read Username" in err_text or "Authentication failed" in err_text or "Permission" in err_text or "terminal" in err_text.lower()):
+                raise RuntimeError(
+                    "Falta autenticación en Render. Configura la variable de entorno 'GITHUB_TOKEN' en el panel de Render con un Personal Access Token (PAT) con permisos de escritura."
+                )
+            raise RuntimeError(err_text)
         
         sync_state["last_synced_at"] = datetime.now(timezone.utc).isoformat()
         sync_state["last_status"] = "ok"
@@ -133,7 +206,14 @@ async def background_auto_sync_worker():
                 capture_output=True,
                 text=True
             )
-            if status_res.stdout.strip():
+            unpushed_res = subprocess.run(
+                ["git", "log", "origin/main..HEAD", "--oneline"],
+                cwd=REPO_DIR,
+                capture_output=True,
+                text=True
+            )
+            has_unpushed = bool(unpushed_res.stdout.strip()) if unpushed_res.returncode == 0 else False
+            if status_res.stdout.strip() or has_unpushed:
                 print("[AutoSync] Detectados cambios en la memoria. Sincronizando con GitHub de forma autónoma...")
                 sync_state["is_syncing"] = True
                 res = perform_git_sync("auto-sync: actualización autónoma de memoria e historial")
@@ -148,6 +228,10 @@ async def background_auto_sync_worker():
 @app.on_event("startup")
 async def on_startup():
     memory_manager.init_db()
+    user_name = os.getenv("GIT_USER_NAME", "YieldChat Bot")
+    user_email = os.getenv("GIT_USER_EMAIL", "yieldchat-bot@users.noreply.github.com")
+    subprocess.run(["git", "config", "user.name", user_name], cwd=REPO_DIR, check=False)
+    subprocess.run(["git", "config", "user.email", user_email], cwd=REPO_DIR, check=False)
     asyncio.create_task(background_auto_sync_worker())
 
 
@@ -391,14 +475,21 @@ def add_memory(req: InsightRequest):
 
 @app.get("/api/sync/status")
 def get_sync_status():
-    # Comprobar cambios pendientes
+    # Comprobar cambios pendientes locales o commits sin pushear
     status_res = subprocess.run(
         ["git", "status", "--porcelain", "backend/learned_insights.json", "backend/chat_history.db"],
         cwd=REPO_DIR,
         capture_output=True,
         text=True
     )
-    has_pending = bool(status_res.stdout.strip())
+    unpushed_res = subprocess.run(
+        ["git", "log", "origin/main..HEAD", "--oneline"],
+        cwd=REPO_DIR,
+        capture_output=True,
+        text=True
+    )
+    has_unpushed = bool(unpushed_res.stdout.strip()) if unpushed_res.returncode == 0 else False
+    has_pending = bool(status_res.stdout.strip()) or has_unpushed
     
     return {
         "is_synced": not has_pending and sync_state["last_status"] == "ok",

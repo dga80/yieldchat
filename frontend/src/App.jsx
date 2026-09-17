@@ -70,6 +70,17 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(null)
   const abortControllerRef = useRef(null)
 
+  const activeSessionIdRef = useRef(activeSessionId)
+  const messagesRef = useRef(messages)
+
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
   // 1. Initial Load: Sessions, Folders, Memory, Status and Multi-device Sync
   useEffect(() => {
     fetchStatus()
@@ -78,16 +89,16 @@ export default function App() {
     fetchFolders()
     loadSessions()
 
-    // Sincronización automática periódica cada 25 segundos (para detectar chats creados en otros dispositivos)
+    // Sincronización automática periódica en segundo plano cada 25 segundos (actualiza lista sin resetear chat activo)
     const syncInterval = setInterval(() => {
       fetchSyncStatus()
-      loadSessions()
+      refreshSessionsList()
     }, 25000)
 
     // Sincronización inmediata al volver a la app o cambiar de ventana/pestaña
     const handleSyncOnResume = () => {
       if (document.visibilityState === 'visible') {
-        loadSessions()
+        refreshSessionsList()
         fetchFolders()
         fetchSyncStatus()
       }
@@ -146,6 +157,25 @@ export default function App() {
     }
   }
 
+  const refreshSessionsList = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/sessions`)
+      if (!res.ok) return
+      const data = await res.json()
+      setSessions(data)
+      try {
+        localStorage.setItem('yieldchat_cached_sessions', JSON.stringify(data))
+      } catch (e) {}
+
+      // Solo si no hay ninguna sesión activa seleccionada (caso muy raro), seleccionar una
+      if (!activeSessionIdRef.current && data.length > 0) {
+        selectSession(data[0].id, false)
+      }
+    } catch (e) {
+      console.warn('Background sessions sync failed:', e)
+    }
+  }
+
   const loadSessions = async (retryCount = 0) => {
     try {
       setSessionsError(false)
@@ -168,8 +198,10 @@ export default function App() {
         : (data.length > 0 ? data[0].id : null)
 
       if (targetId) {
-        // Cargar conversación si no hay mensajes o es distinta
-        if (!activeSessionId || activeSessionId !== targetId || messages.length === 0) {
+        // Cargar conversación si no hay mensajes o es distinta a la activa actual
+        const currentActive = activeSessionIdRef.current
+        const currentMsgs = messagesRef.current
+        if (!currentActive || currentActive !== targetId || currentMsgs.length === 0) {
           selectSession(targetId, false)
         }
       } else if (data.length === 0) {

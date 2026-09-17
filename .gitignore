@@ -11,6 +11,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.sqlite3
+*.bak
+backups/
+backend/backups/
 
 # Node / Frontend
 node_modules/

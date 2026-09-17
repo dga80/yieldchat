@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw, ChevronDown } from 'lucide-react'
 import MessageItem from './MessageItem'
 import ConnectionBadge from './ConnectionBadge'
 
@@ -34,8 +34,11 @@ export default function ChatArea({
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleText, setTitleText] = useState('')
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false)
   const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
+  const userScrolledUpRef = useRef(false)
+  const prevSessionIdRef = useRef(session?.id)
 
   useEffect(() => {
     if (session) {
@@ -43,15 +46,64 @@ export default function ChatArea({
     }
   }, [session])
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback((smooth = false) => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      if (smooth) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        })
+      } else {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      }
+      userScrolledUpRef.current = false
+      setShowScrollBottomBtn(false)
     }
-  }
+  }, [])
 
+  // Detectar si el usuario hace scroll hacia arriba (para no interrumpir su lectura)
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+    const isUp = distanceFromBottom > 120
+    userScrolledUpRef.current = isUp
+    setShowScrollBottomBtn(isUp)
+  }, [])
+
+  // Al cambiar de conversación, bajar inmediatamente al final
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, streamingMessage, currentTool])
+    if (session?.id !== prevSessionIdRef.current) {
+      prevSessionIdRef.current = session?.id
+      userScrolledUpRef.current = false
+      setShowScrollBottomBtn(false)
+      const timer = setTimeout(() => {
+        scrollToBottom(false)
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [session?.id, scrollToBottom])
+
+  // Scroll automático inteligente al recibir mensajes o streaming
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1]
+    const isLastUser = lastMsg?.role === 'user' && !streamingMessage
+
+    // Si el usuario acaba de enviar un mensaje, bajamos siempre
+    if (isLastUser) {
+      userScrolledUpRef.current = false
+      setShowScrollBottomBtn(false)
+      scrollToBottom(false)
+      return
+    }
+
+    // Si el usuario ha hecho scroll hacia arriba para leer, respetamos su posición y no bajamos
+    if (userScrolledUpRef.current) {
+      return
+    }
+
+    scrollToBottom(false)
+  }, [messages, streamingMessage, currentTool, scrollToBottom])
 
   const handleTitleSubmit = () => {
     setIsEditingTitle(false)
@@ -136,7 +188,7 @@ export default function ChatArea({
       </header>
 
       {/* Messages List */}
-      <div className="messages-container" ref={messagesContainerRef}>
+      <div className="messages-container" ref={messagesContainerRef} onScroll={handleScroll}>
         {isLoadingMessages && displayMessages.length === 0 ? (
           <div className="empty-state-wrapper">
             <RefreshCw size={28} className="spin-icon" style={{ color: 'var(--gold)', margin: '0 auto 14px auto' }} />
@@ -200,6 +252,19 @@ export default function ChatArea({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Floating Scroll to Bottom Button */}
+      {showScrollBottomBtn && (
+        <button
+          type="button"
+          className="scroll-to-bottom-btn"
+          onClick={() => scrollToBottom(true)}
+          title="Bajar al final"
+          aria-label="Bajar al final de la conversación"
+        >
+          <ChevronDown size={18} />
+        </button>
+      )}
 
       {/* Input Area (Isolated to prevent re-rendering message list on keystrokes) */}
       <ChatInputBox 

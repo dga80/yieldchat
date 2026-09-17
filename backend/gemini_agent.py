@@ -67,13 +67,28 @@ def herramienta_guardar_aprendizaje_en_memoria(categoria: str, regla_o_preferenc
     res = memory_manager.add_insight(categoria, regla_o_preferencia)
     return {"status": "guardado", "insight": res}
 
+def herramienta_evaluar_packaging_danilov(titulo: str, thumbnail_url: str = "") -> dict:
+    """Audita el empaque (título y miniatura) aplicando la regla de los 3 elementos de Tim Danilov y la brecha de curiosidad para Smart TV y móviles."""
+    return youtube_tools.evaluar_packaging_3_elementos(titulo, thumbnail_url)
+
+def herramienta_diseccionar_hook_30s(video_id: str) -> dict:
+    """Analiza los primeros 30-40 segundos de la transcripción de un vídeo para verificar promesa del título, elevación de apuestas y ausencia de intros vacías."""
+    return youtube_tools.diseccionar_hook_30_segundos(video_id)
+
+def herramienta_niche_bending_generator(nicho_origen: str, formato_probado: str, categoria_alto_rpm: str) -> dict:
+    """Aplica la metodología Niche Bending cruzando un formato viral probado con un micronicho de alto RPM para crear conceptos de canal únicos."""
+    return youtube_tools.generar_matriz_niche_bending(nicho_origen, formato_probado, categoria_alto_rpm)
+
 
 AVAILABLE_TOOLS = [
     herramienta_analizar_canal,
     herramienta_analizar_videos_velocidad,
     herramienta_obtener_transcripcion,
     herramienta_buscar_competencia_espanol,
-    herramienta_guardar_aprendizaje_en_memoria
+    herramienta_guardar_aprendizaje_en_memoria,
+    herramienta_evaluar_packaging_danilov,
+    herramienta_diseccionar_hook_30s,
+    herramienta_niche_bending_generator
 ]
 
 
@@ -89,6 +104,9 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 3. `herramienta_obtener_transcripcion`: Para contar palabras y velocidad de habla de un vídeo.
 4. `herramienta_buscar_competencia_espanol`: Para comprobar si un formato ya está saturado o es un Océano Azul en español.
 5. `herramienta_guardar_aprendizaje_en_memoria`: Para registrar automáticamente preferencias, canales o reglas clave del usuario.
+6. `herramienta_evaluar_packaging_danilov`: Para auditar la regla de 3 elementos de miniatura y curiosidad del título.
+7. `herramienta_diseccionar_hook_30s`: Para analizar la retención y estructura de los primeros 30 segundos de un guion.
+8. `herramienta_niche_bending_generator`: Para generar conceptos de Niche Bending cruzando formatos probados con categorías de alto RPM.
 
 ### REGLAS DE RESPUESTA:
 - Sé directo, analítico, estructurado y sin rodeos innecesarios.

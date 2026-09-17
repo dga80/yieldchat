@@ -251,3 +251,145 @@ def buscar_competencia_espanol(termino: str, max_resultados: int = 6) -> Dict[st
         "total_found": len(items),
         "results": items
     }
+
+
+def evaluar_packaging_3_elementos(titulo: str, thumbnail_url: str = "") -> Dict[str, Any]:
+    """
+    Audita el empaque (Packaging) de un vídeo aplicando la metodología de Tim Danilov:
+    - Regla de los 3 elementos en la miniatura (Sujeto, Contexto, Curiosidad/Contraste).
+    - Longitud del título (<50 caracteres para Smart TV y dispositivos móviles).
+    - Detección de Brecha de Curiosidad (Curiosity Gap) vs Título descriptivo aburrido.
+    """
+    title_clean = titulo.strip()
+    title_length = len(title_clean)
+    word_count = len(title_clean.split())
+    
+    # Análisis de longitud
+    length_verdict = "Óptimo (<50 caracteres)" if title_length <= 50 else ("Aceptable (50-65 caracteres)" if title_length <= 65 else "Demasiado largo (>65 caracteres, se corta en móviles y TV)")
+    
+    # Análisis de brecha de curiosidad (palabras detonantes vs estilo manual)
+    curiosity_triggers = ["por qué", "la verdad", "el secreto", "nunca", "nadie", "cómo", "el error", "regla", "lo que pasa", "why", "secret", "never", "truth", "how", "what happens"]
+    boring_triggers = ["tutorial", "curso", "guía completa", "paso a paso", "introducción", "parte 1", "episodio", "guide", "step by step"]
+    
+    title_lower = title_clean.lower()
+    has_curiosity = any(trig in title_lower for trig in curiosity_triggers)
+    is_boring_manual = any(trig in title_lower for trig in boring_triggers)
+    
+    packaging_score = 70
+    if title_length <= 50:
+        packaging_score += 15
+    elif title_length > 65:
+        packaging_score -= 15
+        
+    if has_curiosity:
+        packaging_score += 15
+    if is_boring_manual:
+        packaging_score -= 20
+        
+    packaging_score = max(20, min(100, packaging_score))
+    
+    return {
+        "titulo": title_clean,
+        "thumbnail_url": thumbnail_url,
+        "caracteres": title_length,
+        "palabras": word_count,
+        "evaluacion_longitud": length_verdict,
+        "tiene_brecha_curiosidad": has_curiosity,
+        "es_estilo_manual_seo": is_boring_manual,
+        "danilov_score": packaging_score,
+        "regla_3_elementos": {
+            "elemento_1_sujeto": "Elemento o personaje focal nítido (a la derecha o centro).",
+            "elemento_2_contexto": "Entorno o fondo limpio con alto contraste que sitúa la historia.",
+            "elemento_3_curiosidad": "Elemento visual paradójico o de contraste que obliga a hacer clic.",
+            "regla_texto": "Máximo 2 a 3 palabras gigantes. Si es Smart TV: Línea 1 blanco, Línea 2 amarillo #FFD700."
+        },
+        "recomendacion_optimizacion": "Hacer el título más corto e intrigante. Asegurar que la miniatura complemente el título pero NO repita las mismas palabras exactas." if title_length > 50 or not has_curiosity else "Excelente empaque para Browse Features (Página de Inicio / Sugeridos)."
+    }
+
+
+def diseccionar_hook_30_segundos(video_id: str) -> Dict[str, Any]:
+    """
+    Extrae y analiza los primeros 30-40 segundos de la transcripción de un vídeo.
+    Evalúa si cumple los 3 requisitos de Danilov:
+    1. Reconfirmar la promesa del título de inmediato (evitar rebote).
+    2. Elevar las apuestas (The Stakes) / introducir el conflicto.
+    3. Abrir bucles narrativos (Open Loops) sin intros ni saludos largos.
+    """
+    clean_id = video_id.strip()
+    if "watch?v=" in clean_id:
+        clean_id = clean_id.split("watch?v=")[-1].split("&")[0]
+    elif "youtu.be/" in clean_id:
+        clean_id = clean_id.split("youtu.be/")[-1].split("?")[0]
+        
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        transcript_list = YouTubeTranscriptApi.get_transcript(clean_id, languages=['es', 'en', 'ja', 'pt', 'de'])
+        
+        hook_snippets = []
+        full_hook_text = []
+        for snip in transcript_list:
+            start_sec = snip.get("start", 0)
+            text = snip.get("text", "").strip()
+            hook_snippets.append(text)
+            full_hook_text.append(text)
+            if start_sec >= 35.0 or len(" ".join(full_hook_text).split()) >= 100:
+                break
+                
+        hook_text = " ".join(full_hook_text)
+        words_in_hook = len(hook_text.split())
+        
+        # Detección de errores típicos en los primeros 30s
+        intro_fluff_words = ["hola a todos", "bienvenidos a mi canal", "en el video de hoy", "suscríbete", "dale like", "hey guys", "welcome back", "in this video", "today we are going to"]
+        has_intro_fluff = any(fluff in hook_text.lower() for fluff in intro_fluff_words)
+        
+        return {
+            "video_id": clean_id,
+            "palabras_primeros_35s": words_in_hook,
+            "texto_del_gancho": hook_text,
+            "diagnostico": {
+                "tiene_relleno_o_saludo_innecesario": has_intro_fluff,
+                "velocidad_arranque": "Lenta (presentación/saludo detectado)" if has_intro_fluff else "Rápida y directa al tema",
+                "ritmo_estimado_ppm": round((words_in_hook / 35.0) * 60, 1)
+            },
+            "principios_hook_danilov": [
+                "Segundo 0-5: Validar visualmente y verbalmente lo prometido en la miniatura.",
+                "Segundo 6-15: Mostrar la consecuencia extrema o paradoja (las apuestas).",
+                "Segundo 16-30: Abrir el bucle de curiosidad principal antes de arrancar la cronología."
+            ]
+        }
+    except Exception as e:
+        return {
+            "video_id": clean_id,
+            "error": f"No se pudo extraer la transcripción para analizar el gancho: {str(e)}",
+            "consejo": "Para analizar el gancho manualmente, transcribe los primeros 30 segundos y verifica que no tenga intros vacías."
+        }
+
+
+def generar_matriz_niche_bending(nicho_origen: str, formato_probado: str, categoria_alto_rpm: str) -> Dict[str, Any]:
+    """
+    Aplica el método de 'Niche Bending' de Tim Danilov:
+    Cruza un formato narrativo de probada tracción viral con un micronicho de alto RPM/demanda.
+    """
+    FORMATOS_ESTRELLA = {
+        "mini_doc_misterio": "Mini-documental de investigación oscura (pacing tenso, estilo MagnatesMedia/Moon).",
+        "timeline_auge_caida": "Línea temporal cinematográfica 'El ascenso y colapso de...' (Rise and Fall).",
+        "animacion_zen_seinen": "Ilustración Seinen/Ghibli contemplativa con narrativa reflexiva (estilo Mente Kaizen / Frugalismo).",
+        "simulacion_3d_mapas": "Animación geográfica y mapas geopolíticos 3D con datos estratégicos.",
+        "paradoja_regla_oculta": "Desmitificación de paradojas: 'Por qué la regla del 99% te mantiene atrapado'."
+    }
+    
+    formato_desc = FORMATOS_ESTRELLA.get(formato_probado.lower().strip(), formato_probado)
+    
+    return {
+        "concepto": f"Niche Bending: {nicho_origen} ➔ {categoria_alto_rpm}",
+        "formato_base": formato_desc,
+        "nicho_objetivo": categoria_alto_rpm,
+        "tesis_estrategica": f"Tomar la estructura de retención y diseño visual de '{nicho_origen}' y aplicarla a '{categoria_alto_rpm}', donde la competencia utiliza formatos monótonos o anticuados.",
+        "pasos_accion": [
+            "1. Localizar 3 vídeos virales en el nicho de origen para extraer sus arcos de tensión y hooks.",
+            "2. Reemplazar la temática central por el dolor/tema del micronicho de alto RPM.",
+            "3. Diseñar miniatura con la regla de 3 elementos adaptada al nuevo avatar.",
+            "4. Comprobar competencia en español (Océano Azul)."
+        ]
+    }
+

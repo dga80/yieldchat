@@ -14,9 +14,11 @@ import {
   FileSpreadsheet,
   Maximize2,
   X,
-  Eye
+  Eye,
+  StickyNote
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { downloadTextAsFile } from '../utils/fileDownloader'
 
 function parseAttachmentLine(str) {
   if (typeof str !== 'string') return null
@@ -59,9 +61,27 @@ function parseAttachmentLine(str) {
   }
 }
 
-function MessageItemComponent({ message }) {
+function MessageItemComponent({ message, onSaveAsNote }) {
   const isUser = message.role === 'user'
   const [lightboxImg, setLightboxImg] = useState(null)
+  const [isCopied, setIsCopied] = useState(false)
+
+  const handleCopyFullMessage = () => {
+    navigator.clipboard.writeText(message.content)
+    setIsCopied(true)
+    toast.success('Respuesta copiada')
+    setTimeout(() => setIsCopied(false), 2000)
+  }
+
+  const handleDownloadMessageTxt = () => {
+    let filename = 'respuesta_yieldchat.txt'
+    const firstLine = message.content.split('\n').find(l => l.trim().length > 0) || ''
+    if (firstLine) {
+      const clean = firstLine.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s_-]/g, '').trim().slice(0, 35).replace(/\s+/g, '_').toLowerCase()
+      if (clean) filename = `${clean}.txt`
+    }
+    downloadTextAsFile(filename, message.content)
+  }
 
   return (
     <>
@@ -144,6 +164,38 @@ function MessageItemComponent({ message }) {
               >
                 {message.content}
               </ReactMarkdown>
+
+              <div className="message-agent-footer-actions">
+                <button
+                  type="button"
+                  className="msg-footer-action-btn"
+                  onClick={handleCopyFullMessage}
+                  title="Copiar texto completo"
+                >
+                  {isCopied ? <Check size={12} style={{ color: 'var(--green)' }} /> : <Copy size={12} />}
+                  <span>{isCopied ? 'Copiado' : 'Copiar'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="msg-footer-action-btn note-download-btn"
+                  onClick={handleDownloadMessageTxt}
+                  title="Descargar esta respuesta completa en archivo .txt"
+                >
+                  <Download size={12} style={{ color: '#38BDF8' }} />
+                  <span>Descargar .txt</span>
+                </button>
+                {onSaveAsNote && (
+                  <button
+                    type="button"
+                    className="msg-footer-action-btn note-save-btn"
+                    onClick={() => onSaveAsNote(message.content)}
+                    title="Guardar esta respuesta como nota en la columna derecha"
+                  >
+                    <StickyNote size={12} style={{ color: 'var(--gold)' }} />
+                    <span>Guardar como nota</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -305,30 +357,64 @@ const ImageCard = React.memo(function ImageCard({ src, alt, onOpenLightbox }) {
 const CodeBlock = React.memo(function CodeBlock({ text, language }) {
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    toast.success('Prompt copiado al portapapeles')
-    setTimeout(() => setCopied(false), 2000)
+  let cleanLang = (language || 'text').trim()
+  let customFilename = null
+  if (cleanLang.includes(':')) {
+    const parts = cleanLang.split(':')
+    cleanLang = parts[0].trim()
+    customFilename = parts.slice(1).join(':').trim()
   }
 
   const isPrompt = text.toLowerCase().includes('--ar') || text.toLowerCase().includes('illustration') || text.toLowerCase().includes('anime')
+  const defaultFilename = customFilename || (isPrompt ? 'prompt_imagen.txt' : (cleanLang === 'json' ? 'datos.json' : 'documento_yieldchat.txt'))
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    toast.success(isPrompt ? 'Prompt copiado' : 'Texto copiado')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDownload = () => {
+    downloadTextAsFile(defaultFilename, text)
+  }
 
   return (
     <div className="code-container">
       <div className="code-header">
-        <span>{isPrompt ? 'PROMPT DE IMAGEN' : language.toUpperCase()}</span>
-        <button className="copy-btn" onClick={handleCopy}>
-          {copied ? (
-            <>
-              <Check size={12} /> Copiado
-            </>
+        <span className="code-header-title">
+          {customFilename ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#38BDF8', fontWeight: 600 }}>
+              <FileText size={13} />
+              <span>{customFilename}</span>
+            </span>
+          ) : isPrompt ? (
+            'PROMPT DE IMAGEN'
           ) : (
-            <>
-              <Copy size={12} /> {isPrompt ? 'Copiar Prompt' : 'Copiar'}
-            </>
+            cleanLang.toUpperCase()
           )}
-        </button>
+        </span>
+        <div className="code-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            className="copy-btn code-download-btn"
+            onClick={handleDownload}
+            title={`Descargar como ${defaultFilename}`}
+          >
+            <Download size={12} style={{ color: '#38BDF8' }} />
+            <span>Descargar .txt</span>
+          </button>
+          <button className="copy-btn" onClick={handleCopy}>
+            {copied ? (
+              <>
+                <Check size={12} /> Copiado
+              </>
+            ) : (
+              <>
+                <Copy size={12} /> {isPrompt ? 'Copiar Prompt' : 'Copiar'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
       <pre>{text}</pre>
     </div>
@@ -338,7 +424,8 @@ const CodeBlock = React.memo(function CodeBlock({ text, language }) {
 const MessageItem = React.memo(MessageItemComponent, (prevProps, nextProps) => {
   return prevProps.message.id === nextProps.message.id &&
          prevProps.message.content === nextProps.message.content &&
-         prevProps.message.role === nextProps.message.role
+         prevProps.message.role === nextProps.message.role &&
+         prevProps.onSaveAsNote === nextProps.onSaveAsNote
 })
 
 export default MessageItem

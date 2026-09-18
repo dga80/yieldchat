@@ -3,6 +3,7 @@ import { Toaster, toast } from 'react-hot-toast'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import MemoryModal from './components/MemoryModal'
+import NotesPanel from './components/NotesPanel'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -51,6 +52,25 @@ export default function App() {
       return []
     }
   })
+  const [notes, setNotes] = useState(() => {
+    try {
+      const activeId = localStorage.getItem('yieldchat_active_session_id')
+      if (activeId) {
+        const cached = localStorage.getItem(`yieldchat_cached_notes_${activeId}`)
+        return cached ? JSON.parse(cached) : []
+      }
+      return []
+    } catch {
+      return []
+    }
+  })
+  const [isNotesOpen, setIsNotesOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 1150
+    }
+    return false
+  })
+  const [expandedNoteIds, setExpandedNoteIds] = useState([])
   const [streamingMessage, setStreamingMessage] = useState('')
   const [currentTool, setCurrentTool] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -88,6 +108,10 @@ export default function App() {
     fetchSyncStatus()
     fetchFolders()
     loadSessions()
+    const initialSessionId = localStorage.getItem('yieldchat_active_session_id')
+    if (initialSessionId) {
+      loadNotesForSession(initialSessionId)
+    }
 
     // Sincronización automática periódica en segundo plano cada 25 segundos (actualiza lista sin resetear chat activo)
     const syncInterval = setInterval(() => {
@@ -229,6 +253,7 @@ export default function App() {
 
     setStreamingMessage('')
     setCurrentTool(null)
+    loadNotesForSession(sessionId)
     if (closeSidebarOnMobile && typeof window !== 'undefined' && window.innerWidth <= 900) {
       setIsSidebarOpen(false)
     }
@@ -255,6 +280,8 @@ export default function App() {
     if (typeof window !== 'undefined' && window.innerWidth <= 900) {
       setIsSidebarOpen(false)
     }
+    setNotes([])
+    setExpandedNoteIds([])
     try {
       const res = await fetch(`${API_BASE}/sessions`, {
         method: 'POST',
@@ -385,6 +412,157 @@ export default function App() {
     }
   }
 
+  // ── Gestión de Notas de la Conversación Activa ─────────────────────────────
+  const loadNotesForSession = async (sessionId) => {
+    if (!sessionId) {
+      setNotes([])
+      return
+    }
+    // Carga inmediata desde caché
+    try {
+      const cached = localStorage.getItem(`yieldchat_cached_notes_${sessionId}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        setNotes(parsed)
+        if (parsed.length > 0) {
+          setExpandedNoteIds(prev => prev.length ? prev : [parsed[0].id])
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const res = await fetch(`${API_BASE}/sessions/${sessionId}/notes`)
+      if (res.ok) {
+        const data = await res.json()
+        setNotes(data)
+        try {
+          localStorage.setItem(`yieldchat_cached_notes_${sessionId}`, JSON.stringify(data))
+        } catch (e) {}
+        if (data.length > 0) {
+          setExpandedNoteIds(prev => prev.length ? prev : [data[0].id])
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching notes:', e)
+    }
+  }
+
+  const handleToggleExpandNote = (noteId) => {
+    setExpandedNoteIds(prev =>
+      prev.includes(noteId) ? prev.filter(id => id !== noteId) : [...prev, noteId]
+    )
+  }
+
+  const handleCreateNote = async ({ title, category, content }) => {
+    if (!activeSessionId) return
+    const tempId = `note_${Date.now()}`
+    const newNote = {
+      id: tempId,
+      session_id: activeSessionId,
+      title,
+      category: category || 'Estrategia',
+      content,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    setNotes(prev => [newNote, ...prev])
+    setExpandedNoteIds(prev => [tempId, ...prev])
+    setIsNotesOpen(true)
+
+    try {
+      const res = await fetch(`${API_BASE}/sessions/${activeSessionId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, category, content })
+      })
+      if (res.ok) {
+        const saved = await res.json()
+        setNotes(prev => {
+          const updated = prev.map(n => n.id === tempId ? saved : n)
+          try {
+            localStorage.setItem(`yieldchat_cached_notes_${activeSessionId}`, JSON.stringify(updated))
+          } catch (e) {}
+          return updated
+        })
+        setExpandedNoteIds(prev => prev.map(id => id === tempId ? saved.id : id))
+      }
+    } catch (e) {
+      console.error('Error creating note:', e)
+    }
+  }
+
+  const handleUpdateNote = async (noteId, { title, category, content }) => {
+    setNotes(prev => {
+      const updated = prev.map(n => n.id === noteId ? { ...n, title, category, content, updated_at: new Date().toISOString() } : n)
+      try {
+        localStorage.setItem(`yieldchat_cached_notes_${activeSessionId}`, JSON.stringify(updated))
+      } catch (e) {}
+      return updated
+    })
+
+    try {
+      const res = await fetch(`${API_BASE}/notes/${noteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, category, content })
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setNotes(prev => {
+          const list = prev.map(n => n.id === noteId ? updated : n)
+          try {
+            localStorage.setItem(`yieldchat_cached_notes_${activeSessionId}`, JSON.stringify(list))
+          } catch (e) {}
+          return list
+        })
+      }
+    } catch (e) {
+      console.error('Error updating note:', e)
+    }
+  }
+
+  const handleDeleteNote = async (noteId) => {
+    setNotes(prev => {
+      const updated = prev.filter(n => n.id !== noteId)
+      try {
+        localStorage.setItem(`yieldchat_cached_notes_${activeSessionId}`, JSON.stringify(updated))
+      } catch (e) {}
+      return updated
+    })
+    setExpandedNoteIds(prev => prev.filter(id => id !== noteId))
+
+    try {
+      await fetch(`${API_BASE}/notes/${noteId}`, { method: 'DELETE' })
+    } catch (e) {
+      console.error('Error deleting note:', e)
+    }
+  }
+
+  const handleSaveMessageAsNote = (messageText) => {
+    if (!messageText) return
+    let title = 'Nota Estratégica'
+    let content = messageText
+    const lines = messageText.split('\n')
+    const firstNonEmpty = lines.find(l => l.trim().length > 0) || ''
+    if (firstNonEmpty.startsWith('#')) {
+      title = firstNonEmpty.replace(/^[#\s]+/, '').slice(0, 50)
+    } else if (firstNonEmpty.toLowerCase().includes('nota estratégica:')) {
+      title = firstNonEmpty.replace(/^[*\s]*nota estratégica:\s*/i, '').slice(0, 50)
+    } else {
+      title = firstNonEmpty.slice(0, 45) + (firstNonEmpty.length > 45 ? '...' : '')
+    }
+
+    let category = 'Estrategia'
+    const lower = messageText.toLowerCase()
+    if (lower.includes('outlier') || lower.includes('viral ratio')) category = 'Outliers'
+    else if (lower.includes('packaging') || lower.includes('miniatura') || lower.includes('ctr')) category = 'Packaging'
+    else if (lower.includes('guion') || lower.includes('hook') || lower.includes('retención')) category = 'Guion'
+
+    handleCreateNote({ title, category, content })
+    toast.success('Nota guardada en la columna lateral')
+  }
+
   // 2. Handle Message Send with Streaming Reader and Abort Capability
   const handleStopChat = () => {
     if (abortControllerRef.current) {
@@ -512,6 +690,21 @@ export default function App() {
               } else if (event.type === 'content') {
                 fullAssistantContent += event.content
                 setStreamingMessage(fullAssistantContent)
+              } else if (event.type === 'note_created') {
+                const newNote = event.note
+                setNotes(prev => [newNote, ...prev.filter(n => n.id !== newNote.id)])
+                setExpandedNoteIds(prev => [newNote.id, ...prev.filter(id => id !== newNote.id)])
+                setIsNotesOpen(true)
+                try {
+                  const currActive = activeSessionIdRef.current
+                  if (currActive) {
+                    const cached = localStorage.getItem(`yieldchat_cached_notes_${currActive}`)
+                    const parsed = cached ? JSON.parse(cached) : []
+                    const updated = [newNote, ...parsed.filter(n => n.id !== newNote.id)]
+                    localStorage.setItem(`yieldchat_cached_notes_${currActive}`, JSON.stringify(updated))
+                  }
+                } catch (e) {}
+                toast.success(`Nota guardada: ${newNote.title}`, { icon: '📌' })
               } else if (event.type === 'done') {
                 setCurrentTool(null)
               } else if (event.type === 'error') {
@@ -653,6 +846,22 @@ export default function App() {
         onNewChat={() => handleNewChat()}
         onStop={handleStopChat}
         isSidebarOpen={isSidebarOpen}
+        notesCount={notes.length}
+        isNotesOpen={isNotesOpen}
+        onToggleNotes={() => setIsNotesOpen(prev => !prev)}
+        onSaveAsNote={handleSaveMessageAsNote}
+      />
+
+      <NotesPanel
+        isOpen={isNotesOpen}
+        onClose={() => setIsNotesOpen(false)}
+        notes={notes}
+        expandedNoteIds={expandedNoteIds}
+        onToggleExpandNote={handleToggleExpandNote}
+        onCreateNote={handleCreateNote}
+        onUpdateNote={handleUpdateNote}
+        onDeleteNote={handleDeleteNote}
+        activeSessionTitle={activeSession?.title}
       />
 
       <MemoryModal

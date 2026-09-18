@@ -273,6 +273,16 @@ class InsightRequest(BaseModel):
     categoria: str
     regla: str
 
+class CreateNoteRequest(BaseModel):
+    title: str
+    content: str
+    category: Optional[str] = "Estrategia"
+
+class UpdateNoteRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    category: Optional[str] = None
+
 
 # ── Rutas de Estado y Modelo ──────────────────────────────────────────────────
 
@@ -424,7 +434,37 @@ def delete_session(session_id: str):
     return {"status": "deleted", "id": session_id}
 
 
+# ── Rutas de Notas de Conversación ────────────────────────────────────────────
+
+@app.get("/api/sessions/{session_id}/notes")
+def get_session_notes(session_id: str):
+    return memory_manager.list_notes(session_id)
+
+
+@app.post("/api/sessions/{session_id}/notes")
+def create_session_note(session_id: str, req: CreateNoteRequest):
+    note = memory_manager.create_note(session_id, req.title, req.content, req.category or "Estrategia")
+    return note
+
+
+@app.put("/api/notes/{note_id}")
+def update_note(note_id: str, req: UpdateNoteRequest):
+    updated = memory_manager.update_note(note_id, req.title, req.content, req.category)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+    return updated
+
+
+@app.delete("/api/notes/{note_id}")
+def delete_note(note_id: str):
+    deleted = memory_manager.delete_note(note_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+    return {"status": "deleted", "id": note_id}
+
+
 # ── Ruta de Chat con Streaming (Server-Sent Events) ───────────────────────────
+
 
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest, request: Request):

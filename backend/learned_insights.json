@@ -70,5 +70,11 @@
     "categoria": "ESTILO_COMUNICACION",
     "regla": "Comunicación 100% transparente, pragmática y directa. Sin adornos ni halagos innecesarios. Enfoque estricto en la relación esfuerzo/retorno (ROI) para la toma de decisiones de diseño y producción. Tratamiento al usuario como diseñador gráfico y productor digital.",
     "created_at": "2026-09-06T21:38:35.589462+00:00"
+  },
+  {
+    "id": 13,
+    "categoria": "ESTRATEGIA_RETENCION",
+    "regla": "El Call To Action que mejor funciona en @estoescosmos es pedir 'Me Gusta' e invitar a los oyentes a escribir en los comentarios desde qué ciudad o país están escuchando el vídeo.",
+    "created_at": "2026-09-18T17:41:15.398754+00:00"
   }
 ]

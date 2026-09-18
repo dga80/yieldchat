@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw, ChevronDown } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw, ChevronDown, StickyNote } from 'lucide-react'
 import MessageItem from './MessageItem'
 import ConnectionBadge from './ConnectionBadge'
 
@@ -30,7 +30,11 @@ export default function ChatArea({
   onToggleSidebar,
   onNewChat,
   onStop,
-  isSidebarOpen
+  isSidebarOpen,
+  notesCount = 0,
+  isNotesOpen = false,
+  onToggleNotes,
+  onSaveAsNote
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleText, setTitleText] = useState('')
@@ -177,6 +181,15 @@ export default function ChatArea({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ConnectionBadge />
           <button
+            className={`gemini-notes-btn ${isNotesOpen ? 'active' : ''}`}
+            onClick={onToggleNotes}
+            title={isNotesOpen ? 'Ocultar notas de la conversación' : 'Ver notas de la conversación'}
+            aria-label="Notas de la conversación"
+          >
+            <StickyNote size={18} />
+            {notesCount > 0 && <span className="notes-counter-badge">{notesCount}</span>}
+          </button>
+          <button
             className="gemini-new-btn"
             onClick={() => onNewChat?.()}
             title="Nueva conversación"
@@ -212,6 +225,7 @@ export default function ChatArea({
             <MessageItem 
               key={msg.id || `msg-${idx}-${msg.role}`} 
               message={msg} 
+              onSaveAsNote={onSaveAsNote}
             />
           ))
         )}

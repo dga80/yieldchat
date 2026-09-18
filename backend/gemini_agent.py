@@ -10,6 +10,7 @@ import io
 import base64
 import asyncio
 import socket
+from contextvars import ContextVar
 from typing import AsyncGenerator, Dict, Any, List, Optional
 from google import genai
 from google.genai import types
@@ -20,6 +21,9 @@ import youtube_tools
 import memory_manager
 
 load_dotenv()
+
+_current_session_id: ContextVar[str] = ContextVar("_current_session_id", default="")
+_session_created_notes: Dict[str, List[Dict[str, Any]]] = {}
 
 FLASH_CANDIDATES = [
     "gemini-3.6-flash",
@@ -79,6 +83,18 @@ def herramienta_niche_bending_generator(nicho_origen: str, formato_probado: str,
     """Aplica la metodología Niche Bending cruzando un formato viral probado con un micronicho de alto RPM para crear conceptos de canal únicos."""
     return youtube_tools.generar_matriz_niche_bending(nicho_origen, formato_probado, categoria_alto_rpm)
 
+def herramienta_crear_nota_sesion(titulo: str, contenido: str, categoria: str = "Estrategia") -> dict:
+    """Crea y guarda una nota o cápsula estratégica en la columna lateral de la conversación actual. Usa esta herramienta cuando el usuario te pida crear una nota, archivar un resumen, guardar ideas o estructurar apuntes para su panel lateral."""
+    s_id = _current_session_id.get()
+    if not s_id:
+        return {"status": "error", "message": "No hay sesión activa"}
+    cat = categoria.strip() if categoria and categoria.strip() else "Estrategia"
+    note = memory_manager.create_note(s_id, titulo, contenido, cat)
+    if s_id not in _session_created_notes:
+        _session_created_notes[s_id] = []
+    _session_created_notes[s_id].append(note)
+    return {"status": "nota_creada", "nota": note}
+
 
 AVAILABLE_TOOLS = [
     herramienta_analizar_canal,
@@ -88,7 +104,8 @@ AVAILABLE_TOOLS = [
     herramienta_guardar_aprendizaje_en_memoria,
     herramienta_evaluar_packaging_danilov,
     herramienta_diseccionar_hook_30s,
-    herramienta_niche_bending_generator
+    herramienta_niche_bending_generator,
+    herramienta_crear_nota_sesion
 ]
 
 
@@ -98,7 +115,7 @@ def build_system_instruction() -> str:
     return f"""Eres YieldChat, un Consultor y Estratega de Élite en Crecimiento de Canales de YouTube Faceless (Automatización de YouTube).
 Tu objetivo es ayudar al usuario a descubrir nichos de océano azul, auditar canales competidores con métricas reales, analizar outliers por velocidad de vistas/día, diseñar guiones de alta retención, sugerir configuraciones de voz (TTS/ElevenLabs/Qwen), analizar imágenes de referencia con visión artificial y redactar prompts profesionales de imágenes y miniaturas de máxima conversión (para Midjourney v6, Flux y Nano Banana).
 
-Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
+Tienes acceso directo a herramientas en tiempo real de la API de YouTube y de gestión de notas:
 1. `herramienta_analizar_canal`: Para obtener radiografías completas de cualquier canal.
 2. `herramienta_analizar_videos_velocidad`: Para analizar todos los vídeos y calcular velocidad (vistas/día) y Viral Ratio.
 3. `herramienta_obtener_transcripcion`: Para contar palabras y velocidad de habla de un vídeo.
@@ -107,6 +124,7 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
 6. `herramienta_evaluar_packaging_danilov`: Para auditar la regla de 3 elementos de miniatura y curiosidad del título.
 7. `herramienta_diseccionar_hook_30s`: Para analizar la retención y estructura de los primeros 30 segundos de un guion.
 8. `herramienta_niche_bending_generator`: Para generar conceptos de Niche Bending cruzando formatos probados con categorías de alto RPM.
+9. `herramienta_crear_nota_sesion`: Para crear y archivar notas en la columna lateral de la conversación. SI EL USUARIO PIDE 'crea una nota sobre...', 'guarda esto en una nota' o pide archivar una síntesis, LLAMA SIEMPRE a esta herramienta con un título claro, el contenido estructurado en Markdown y su categoría ('Estrategia', 'Packaging', 'Guion', 'Outliers', etc.).
 
 ### REGLAS DE RESPUESTA:
 - Sé directo, analítico, estructurado y sin rodeos innecesarios.
@@ -119,9 +137,15 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube:
   * Si el usuario pide adaptar o fusionar referencias (ej. cambiar texto al castellano, colocar un personaje específico en una esquina, modificar fondo), redacta el prompt exacto combinando ambos elementos con máxima fidelidad.
   * Si el usuario pide aprender el estilo, llama a `herramienta_guardar_aprendizaje_en_memoria` con categoría 'MINIATURAS' o 'ESTILO_VISUAL'.
 - Cuando el usuario te pida investigar un canal o nicho, usa proactivamente tus herramientas para obtener datos 100% verídicos de YouTube antes de responder.
+- Si el usuario solicita crear una nota, además de llamar a `herramienta_crear_nota_sesion`, confirma en tu respuesta que la nota ha sido creada y guardada en su columna lateral.
+- Cuando el usuario te pida **unir respuestas, compilar partes de la conversación o generar un archivo .txt**:
+  * Revisa con precisión el historial de la conversación para extraer las partes solicitadas.
+  * Organiza el texto unificado con separadores limpios (ej. `=== TÍTULO DE LA SECCIÓN ===`) y estructura profesional.
+  * Encapsula el documento consolidado en un bloque de código markdown especificando el nombre del archivo con `txt:nombre_descriptivo.txt` (ej: ````txt:guion_y_outliers_cosmos.txt ... ````) para habilitar su descarga en 1 clic desde el chat.
 
 {learned_memory}
 """
+
 
 
 def _sanitize_history_for_genai(raw_messages: List[Dict[str, Any]]) -> List[types.Content]:
@@ -176,6 +200,8 @@ async def stream_agent_chat(
     Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas, soporte multimodal de imágenes, archivos de texto y PDFs, fallback inteligente y streaming no bloqueante.
     """
     client = _get_client()
+    _current_session_id.set(session_id)
+    _session_created_notes[session_id] = []
     uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
     os.makedirs(uploads_dir, exist_ok=True)
     
@@ -301,6 +327,11 @@ async def stream_agent_chat(
 
     # Notificar modelo activo utilizado
     yield {"type": "model_info", "model": selected_model_name}
+    
+    # Emitir cualquier nota creada durante el turno
+    created_notes = _session_created_notes.pop(session_id, [])
+    for n in created_notes:
+        yield {"type": "note_created", "note": n}
     
     # Enviar respuesta final
     try:

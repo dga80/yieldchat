@@ -6,6 +6,7 @@ Handles SQLite persistence for multi-turn chat sessions and long-term learned in
 import os
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -53,6 +54,19 @@ def init_db():
         content TEXT NOT NULL,
         tool_calls TEXT,
         created_at TEXT NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notes (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        category TEXT DEFAULT 'Estrategia',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
         FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     )
     """)
@@ -270,3 +284,88 @@ def format_memory_for_system_prompt() -> str:
     for i in insights:
         formatted += f"- [{i.get('categoria', 'GENERAL').upper()}]: {i.get('regla')}\n"
     return formatted
+
+
+# ── Gestión de Notas de Conversación (SQLite) ────────────────────────────────
+
+def list_notes(session_id: str) -> List[Dict[str, Any]]:
+    """Devuelve todas las notas asociadas a una sesión, ordenadas por fecha de actualización descendente."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, session_id, title, content, category, created_at, updated_at
+        FROM notes
+        WHERE session_id = ?
+        ORDER BY created_at DESC
+    """, (session_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_note(session_id: str, title: str, content: str, category: str = "Estrategia", note_id: Optional[str] = None) -> Dict[str, Any]:
+    """Crea una nueva nota en la conversación activa."""
+    n_id = note_id or f"note_{uuid.uuid4().hex[:10]}"
+    now = datetime.now(timezone.utc).isoformat()
+    clean_cat = category.strip() if category and category.strip() else "Estrategia"
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO notes (id, session_id, title, content, category, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (n_id, session_id, title.strip(), content.strip(), clean_cat, now, now))
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": n_id,
+        "session_id": session_id,
+        "title": title.strip(),
+        "content": content.strip(),
+        "category": clean_cat,
+        "created_at": now,
+        "updated_at": now
+    }
+
+
+def update_note(note_id: str, title: Optional[str] = None, content: Optional[str] = None, category: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Actualiza una nota existente."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM notes WHERE id = ?", (note_id,))
+    existing = cursor.fetchone()
+    if not existing:
+        conn.close()
+        return None
+        
+    now = datetime.now(timezone.utc).isoformat()
+    new_title = title.strip() if title is not None else existing["title"]
+    new_content = content.strip() if content is not None else existing["content"]
+    new_category = category.strip() if category is not None else existing["category"]
+    
+    cursor.execute("""
+        UPDATE notes
+        SET title = ?, content = ?, category = ?, updated_at = ?
+        WHERE id = ?
+    """, (new_title, new_content, new_category, now, note_id))
+    conn.commit()
+    
+    cursor.execute("SELECT * FROM notes WHERE id = ?", (note_id,))
+    updated = cursor.fetchone()
+    conn.close()
+    return dict(updated) if updated else None
+
+
+def delete_note(note_id: str) -> bool:
+    """Elimina una nota por su ID."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+

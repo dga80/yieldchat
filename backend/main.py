@@ -144,15 +144,24 @@ def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo pl
             else:
                 push_target = origin_url
 
-        # Intentar rebase suave por si hay commits remotos nuevos antes de subir
+        # Intentar incorporar cambios remotos si los hay antes de hacer push
         try:
             subprocess.run(
-                ["git", "pull", "--rebase", push_target, "main"],
+                ["git", "fetch", push_target, "main"],
                 cwd=REPO_DIR,
                 env=env,
                 capture_output=True,
                 text=True,
                 timeout=15,
+                check=False
+            )
+            subprocess.run(
+                ["git", "pull", "--rebase", "-X", "theirs", push_target, "main"],
+                cwd=REPO_DIR,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=20,
                 check=False
             )
         except Exception:

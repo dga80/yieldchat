@@ -683,7 +683,8 @@ export default function App() {
               if (event.type === 'model_info') {
                 setStatus(prev => ({ ...prev, active_gemini_model: event.model }))
               } else if (event.type === 'tool_start') {
-                const toolNamePretty = event.tool.replace('herramienta_', '').replaceAll('_', ' ')
+                const rawName = event.message || event.tool || 'Procesando'
+                const toolNamePretty = rawName.replace('herramienta_', '').replaceAll('_', ' ')
                 setCurrentTool(toolNamePretty)
               } else if (event.type === 'tool_done') {
                 setCurrentTool(null)

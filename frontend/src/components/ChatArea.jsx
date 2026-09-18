@@ -245,7 +245,9 @@ export default function ChatArea({
                     <span className="dot" />
                   </div>
                   <span className="thinking-text">
-                    {currentTool ? `Ejecutando ${currentTool}...` : 'YieldChat está procesando y creando...'}
+                    {currentTool 
+                      ? (currentTool.startsWith('Redactando') || currentTool.includes('Parte') ? currentTool : `Ejecutando ${currentTool}...`) 
+                      : 'YieldChat está procesando y creando...'}
                   </span>
                 </div>
                 {onStop && (

@@ -10,6 +10,7 @@ import io
 import base64
 import asyncio
 import socket
+import re
 from contextvars import ContextVar
 from typing import AsyncGenerator, Dict, Any, List, Optional
 from google import genai
@@ -26,10 +27,10 @@ _current_session_id: ContextVar[str] = ContextVar("_current_session_id", default
 _session_created_notes: Dict[str, List[Dict[str, Any]]] = {}
 
 FLASH_CANDIDATES = [
-    "gemini-3.6-flash",
-    "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
-    "gemini-flash-lite-latest"
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite"
 ]
 
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -109,6 +110,99 @@ AVAILABLE_TOOLS = [
 ]
 
 
+def clean_script_chunk(text: str) -> str:
+    """Elimina preguntas de cierre conversacional intermedias (ej. ¿quieres que continúe?) para locución limpia."""
+    patterns = [
+        r"(?:¿|¡)?(?:quieres|deseas|te gustaría)\s+que\s+(?:continúe|siga|redacte).*",
+        r"(?:dime|avísame|indícame)\s+(?:si|cuando)\s+(?:quieres|deseas)\s+que\s+(?:continúe|siga).*",
+        r"(?:¿|¡)?pasamos\s+a\s+la\s+(?:siguiente|próxima)\s+parte\??.*",
+        r"(?:¿|¡)?quieres\s+hacer\s+algún\s+ajuste\s+antes\s+de\s+seguir\??.*"
+    ]
+    cleaned = text
+    for p in patterns:
+        cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE | re.DOTALL).rstrip()
+    return cleaned
+
+
+def find_last_script_part_in_history(history_messages: List[Dict[str, Any]]) -> Optional[int]:
+    """Busca en el historial el número de la última parte de guion generada previamente."""
+    if not history_messages:
+        return None
+    for msg in reversed(history_messages):
+        if msg.get("role") == "assistant":
+            content = msg.get("content", "")
+            matches = re.findall(r"(?:##\s*PARTE|Parte)\s*(\d+)", content, re.IGNORECASE)
+            if matches:
+                try:
+                    return int(matches[-1])
+                except ValueError:
+                    pass
+    return None
+
+
+def detect_multi_part_request(user_message: str, history_messages: Optional[List[Dict[str, Any]]] = None) -> Optional[Dict[str, int]]:
+    """
+    Detecta si el mensaje del usuario solicita redactar un guion en múltiples partes o bucle autónomo.
+    Retorna un diccionario con {'start': X, 'total': Y} o None.
+    """
+    msg = user_message.lower().strip()
+    
+    script_indicators = [
+        'guion', 'guión', 'script', 'redacta', 'escribe', 'desarrolla', 
+        'historia', 'narracion', 'narración', 'locucion', 'locución', 
+        'video', 'vídeo', 'bucle autónomo', 'bucle autonomo', 'partes seguidas',
+        'continua', 'continúa', 'sigue'
+    ]
+    is_script = any(ind in msg for ind in script_indicators)
+    
+    auto_indicators = [
+        'sigue tú solo', 'sigue tu solo', 'sigue solo', 'sin parar', 
+        'sin preguntarme', 'sin que yo te pida', 'sin que te lo pida', 
+        'sin orden', 'sin que te dé la orden', 'sin que te de la orden',
+        'sin que yo le de', 'sin que yo le dé', 'sin que yo te diga',
+        'del tirón', 'del tiron', 'de un tirón', 'de un tiron',
+        'bucle autónomo', 'bucle autonomo', 'de forma continua', 'ininterrumpid',
+        'todas las partes', 'las 9 partes', 'partes seguidas', 'completo en',
+        'todas seguidas'
+    ]
+    is_auto = any(ind in msg for ind in auto_indicators)
+    
+    # 1. Rango explícito: 'de la parte 3 a la 9', 'parte 2 hasta 9'
+    range_match = re.search(r'(?:de la\s+)?parte\s+(\d+)\s+(?:a|hasta)\s+(?:la\s+)?(?:parte\s+)?(\d+)', msg)
+    if range_match:
+        start_p = int(range_match.group(1))
+        end_p = int(range_match.group(2))
+        if 1 <= start_p < end_p <= 20:
+            return {'start': start_p, 'total': end_p}
+            
+    # 2. Conteo de partes: '9 partes', 'en 9 partes', 'nueve partes'
+    part_match = re.search(r'(\d+)\s*(?:partes|bloques|secciones|capítulos|capitulos)', msg)
+    num_map = {'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5, 'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10, 'once': 11, 'doce': 12}
+    words_match = re.search(r'\b(dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\s*(?:partes|bloques|secciones)', msg)
+    
+    parts_count = None
+    if part_match:
+        parts_count = int(part_match.group(1))
+    elif words_match:
+        parts_count = num_map.get(words_match.group(1))
+        
+    if parts_count and (is_script or is_auto):
+        if 2 <= parts_count <= 20:
+            if any(q in msg for q in ['cuáles son', 'cuales son', 'qué son', 'que son', 'cuantas partes', 'cuántas partes']):
+                return None
+            return {'start': 1, 'total': parts_count}
+            
+    # 3. Solicitud de bucle autónomo o continuación automática
+    if is_auto:
+        last_part = find_last_script_part_in_history(history_messages or [])
+        if last_part and last_part < 9:
+            return {'start': last_part + 1, 'total': 9}
+        if is_script or 'bucle' in msg:
+            return {'start': 1, 'total': 9}
+            
+    return None
+
+
 def build_system_instruction() -> str:
     learned_memory = memory_manager.format_memory_for_system_prompt()
     
@@ -142,6 +236,13 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube y de ge
   * Revisa con precisión el historial de la conversación para extraer las partes solicitadas.
   * Organiza el texto unificado con separadores limpios (ej. `=== TÍTULO DE LA SECCIÓN ===`) y estructura profesional.
   * Encapsula el documento consolidado en un bloque de código markdown especificando el nombre del archivo con `txt:nombre_descriptivo.txt` (ej: ````txt:guion_y_outliers_cosmos.txt ... ````) para habilitar su descarga en 1 clic desde el chat.
+
+### REGLAS PARA GUIONES Y LOCUCIÓN TTS (QWEN 1.7 / ELEVENLABS):
+- Cuando redactes guiones para YouTube:
+  * Estructura cada sección con encabezado claro: `## PARTE X: [TÍTULO DESCRIPTIVO]`.
+  * Redacta prosa limpia, envolvente y lista para ser leída por voz artificial: **NUNCA incluyas marcas de tiempo** (ej: `[00:00]`, `(2:15)`), ni acotaciones de sonido o música innecesarias que interrumpan el audio.
+  * Mantén el ritmo narrativo elevado, con tensión, ganchos de curiosidad continuos y preguntas abiertas que obliguen a seguir escuchando.
+  * En modo de generación de guion o bucle, redacta directamente la narración sin saludos iniciales ni preguntas de cierre como "¿Quieres que continúe?".
 
 {learned_memory}
 """
@@ -194,10 +295,12 @@ async def stream_agent_chat(
     session_id: str, 
     user_message: str, 
     images: Optional[List[str]] = None,
-    files: Optional[List[Dict[str, Any]]] = None
+    files: Optional[List[Dict[str, Any]]] = None,
+    is_disconnected: Optional[Any] = None
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
-    Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas, soporte multimodal de imágenes, archivos de texto y PDFs, fallback inteligente y streaming no bloqueante.
+    Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas,
+    soporte multimodal, bucle autónomo multi-paso para guiones, y streaming no bloqueante.
     """
     client = _get_client()
     _current_session_id.set(session_id)
@@ -208,6 +311,9 @@ async def stream_agent_chat(
     # 1. Recuperar historial de mensajes PREVIOS de la sesión (antes de agregar el actual)
     session_data = memory_manager.get_session(session_id)
     history_messages = session_data.get("messages", []) if session_data else []
+    
+    # Detectar si el usuario pide redactar un guion en múltiples partes o bucle autónomo
+    multi_part_info = detect_multi_part_request(user_message, history_messages)
     
     # Preparar contenido guardado en BD y partes del payload de Gemini
     stored_user_content = ""
@@ -271,7 +377,7 @@ async def stream_agent_chat(
             except Exception as e:
                 print(f"[GeminiAgent] Error processing attached legacy image {idx}: {e}")
                 
-    # Agregar texto del usuario al almacenamiento y al payload
+    # Agregar texto del usuario al almacenamiento de la conversación
     stored_user_content += user_message
     memory_manager.add_message(session_id, "user", stored_user_content)
     
@@ -280,13 +386,14 @@ async def stream_agent_chat(
         
     send_payload = payload_parts if len(payload_parts) > 1 else (payload_parts[0] if payload_parts else user_message)
     
-    # Formatear y sanitizar historial para google-genai
+    # Formatear y sanitizar historial previo para google-genai
     formatted_history = _sanitize_history_for_genai(history_messages)
 
-    # Configuración de generación
+    # Configuración de generación optimizada con 8192 max tokens
     config = types.GenerateContentConfig(
         system_instruction=build_system_instruction(),
         tools=AVAILABLE_TOOLS,
+        max_output_tokens=8192,
         temperature=0.7
     )
 
@@ -295,20 +402,45 @@ async def stream_agent_chat(
     candidate_models = [env_model] if env_model else FLASH_CANDIDATES
     
     selected_model_name = None
-    response = None
-
+    chat = None
+    first_response = None
     failed_attempts = []
+
+    # Ajustar payload inicial si se entra en bucle multi-parte
+    initial_payload = send_payload
+    if multi_part_info:
+        start_part = multi_part_info["start"]
+        total_parts = multi_part_info["total"]
+        if start_part == 1:
+            directive = f"\n\n[DIRECTIVA AUTÓNOMA]: Comienza redactando la PARTE 1 de {total_parts}. Sin introducciones vacías ni saludos. Sin marcas de tiempo [00:00]. Empieza directamente con el encabezado '## PARTE 1: [TÍTULO]' y la narración completa."
+        else:
+            directive = f"\n\n[DIRECTIVA AUTÓNOMA]: Continúa el guion redactando la PARTE {start_part} de {total_parts}. Sin introducciones vacías ni preguntas. Sin marcas de tiempo [00:00]. Empieza directamente con el encabezado '## PARTE {start_part}: [TÍTULO]' y la narración completa."
+
+        if isinstance(initial_payload, list):
+            initial_payload = list(initial_payload) + [types.Part.from_text(text=directive)]
+        elif isinstance(initial_payload, types.Part):
+            initial_payload = [initial_payload, types.Part.from_text(text=directive)]
+        else:
+            initial_payload = f"{initial_payload}{directive}"
+
     for model_name in candidate_models:
         try:
-            # Ejecutar de forma no bloqueante en hilo con timeout de 50s
-            response = await asyncio.wait_for(
-                asyncio.to_thread(_execute_chat_turn, client, model_name, config, formatted_history, send_payload),
-                timeout=50.0
+            curr_chat = client.chats.create(model=model_name, config=config, history=formatted_history)
+            if multi_part_info:
+                yield {
+                    "type": "tool_start",
+                    "tool": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']} autónomamente...",
+                    "message": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']} autónomamente..."
+                }
+            first_response = await asyncio.wait_for(
+                asyncio.to_thread(curr_chat.send_message, initial_payload),
+                timeout=60.0
             )
+            chat = curr_chat
             selected_model_name = model_name
             break
         except asyncio.TimeoutError:
-            print(f"[GeminiAgent] Timeout (50s) excedido con modelo {model_name}. Intentando fallback...")
+            print(f"[GeminiAgent] Timeout (60s) excedido con modelo {model_name}. Intentando fallback...")
             failed_attempts.append(f"{model_name}: Timeout")
             continue
         except Exception as e:
@@ -316,7 +448,7 @@ async def stream_agent_chat(
             print(f"[GeminiAgent] Fallo con modelo {model_name}: {e}")
             continue
 
-    if not response:
+    if not chat or not first_response:
         all_failures = " | ".join(failed_attempts)
         print(f"[GeminiAgent] Todos los modelos fallaron: {all_failures}")
         err_msg = f"El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota ({all_failures[:300]}). Por favor, intenta de nuevo en unos segundos."
@@ -327,18 +459,113 @@ async def stream_agent_chat(
 
     # Notificar modelo activo utilizado
     yield {"type": "model_info", "model": selected_model_name}
+
+    # ── MODO ESTÁNDAR (UN SOLO TURNO) ─────────────────────────────────────────
+    if not multi_part_info:
+        # Emitir notas creadas durante el turno
+        created_notes = _session_created_notes.pop(session_id, [])
+        for n in created_notes:
+            yield {"type": "note_created", "note": n}
+        
+        try:
+            final_text = first_response.text if hasattr(first_response, "text") else "Análisis completado."
+        except Exception:
+            final_text = "Análisis completado."
+            
+        memory_manager.add_message(session_id, "assistant", final_text)
+        yield {"type": "content", "content": final_text}
+        yield {"type": "done"}
+        return
+
+    # ── MODO BUCLE AUTÓNOMO (MULTI-PARTE SCRIPTING) ───────────────────────────
+    start_p = multi_part_info["start"]
+    total_p = multi_part_info["total"]
+
+    first_text = first_response.text if hasattr(first_response, "text") else ""
+    first_text_cleaned = clean_script_chunk(first_text)
     
-    # Emitir cualquier nota creada durante el turno
+    accumulated_parts: List[str] = [first_text_cleaned]
+    full_assistant_content = first_text_cleaned
+    
+    yield {"type": "content", "content": first_text_cleaned}
+    yield {"type": "tool_done"}
+
     created_notes = _session_created_notes.pop(session_id, [])
     for n in created_notes:
         yield {"type": "note_created", "note": n}
-    
-    # Enviar respuesta final
-    try:
-        final_text = response.text if hasattr(response, "text") else "Análisis completado."
-    except Exception:
-        final_text = "Análisis completado."
+
+    # Bucle autónomo continuo hasta total_p
+    for part_idx in range(start_p + 1, total_p + 1):
+        if is_disconnected and await is_disconnected():
+            print(f"[GeminiAgent] Bucle autónomo detenido por cancelación del cliente en parte {part_idx}/{total_p}")
+            break
+
+        yield {
+            "type": "tool_start",
+            "tool": f"Redactando Parte {part_idx} de {total_p} autónomamente...",
+            "message": f"Redactando Parte {part_idx} de {total_p} autónomamente..."
+        }
+
+        cont_prompt = (
+            f"Continúa de inmediato con la PARTE {part_idx} de {total_p}. "
+            f"Escribe la narración completa, fluida y con máxima profundidad para esta sección del vídeo. "
+            f"NO te detengas, NO pidas confirmación ni hagas preguntas (como '¿quieres que siga?'). "
+            f"NUNCA incluyas marcas de tiempo (ej. [00:00]). "
+            f"Empieza directamente con el encabezado '## PARTE {part_idx}: [TÍTULO]' y el texto de locución."
+        )
+
+        try:
+            next_resp = await asyncio.wait_for(
+                asyncio.to_thread(chat.send_message, cont_prompt),
+                timeout=70.0
+            )
+            raw_chunk = next_resp.text if hasattr(next_resp, "text") else ""
+            cleaned_chunk = clean_script_chunk(raw_chunk)
+            
+            if not cleaned_chunk:
+                print(f"[GeminiAgent] Parte {part_idx} finalizó con texto vacío. Deteniendo bucle.")
+                yield {"type": "tool_done"}
+                break
+
+            accumulated_parts.append(cleaned_chunk)
+            formatted_chunk = f"\n\n---\n\n{cleaned_chunk}"
+            full_assistant_content += formatted_chunk
+            yield {"type": "content", "content": formatted_chunk}
+            yield {"type": "tool_done"}
+
+            created_notes = _session_created_notes.pop(session_id, [])
+            for n in created_notes:
+                yield {"type": "note_created", "note": n}
+
+        except asyncio.TimeoutError:
+            print(f"[GeminiAgent] Timeout en parte {part_idx}. Cerrando bucle.")
+            yield {"type": "tool_done"}
+            break
+        except Exception as ex:
+            print(f"[GeminiAgent] Error generando parte {part_idx}: {ex}")
+            yield {"type": "tool_done"}
+            break
+
+    # Empaquetado final unificado y tarjeta descargable
+    if accumulated_parts:
+        full_script = "\n\n---\n\n".join(accumulated_parts)
+        num_generated = len(accumulated_parts)
         
-    memory_manager.add_message(session_id, "assistant", final_text)
-    yield {"type": "content", "content": final_text}
+        # 1. Guardar automáticamente en Notas
+        note_title = f"Guion Completo ({num_generated} Partes)"
+        note = memory_manager.create_note(session_id, note_title, full_script, "Guion")
+        yield {"type": "note_created", "note": note}
+        
+        # 2. Tarjeta con bloque descargable en 1 clic
+        txt_filename = f"guion_completo_{num_generated}_partes.txt"
+        download_card = (
+            f"\n\n---\n\n"
+            f"### 📄 Guion Completo ({num_generated} Partes) Unificado\n\n"
+            f"````txt:{txt_filename}\n{full_script}\n````\n\n"
+            f"*📌 El guion completo se ha guardado automáticamente en tu panel lateral de Notas.*"
+        )
+        full_assistant_content += download_card
+        yield {"type": "content", "content": download_card}
+
+    memory_manager.add_message(session_id, "assistant", full_assistant_content)
     yield {"type": "done"}

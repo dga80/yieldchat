@@ -480,7 +480,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 session_id=req.session_id,
                 user_message=req.message,
                 images=req.images,
-                files=files_list
+                files=files_list,
+                is_disconnected=request.is_disconnected
             ):
                 if await request.is_disconnected():
                     print(f"[Chat] Cliente canceló o se desconectó de la sesión {req.session_id}")

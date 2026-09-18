@@ -253,70 +253,70 @@ export default function NotesPanel({
           </div>
         </div>
 
-        {/* Formulario de creación de nueva nota */}
-        {isCreating && (
-          <div className="note-create-card">
-            <div className="note-card-form-title">
-              <Sparkles size={14} style={{ color: 'var(--gold)' }} />
-              <span>Crear Nueva Nota</span>
-            </div>
-            <form onSubmit={handleSaveNew}>
-              <input
-                type="text"
-                className="note-input-title"
-                placeholder="Título de la nota (ej. Outliers @cosmoexplains)..."
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                autoFocus
-              />
-
-              <div className="note-category-picker">
-                <span className="note-picker-label">Categoría:</span>
-                <div className="note-category-pills">
-                  {DEFAULT_CATEGORIES.map(cat => {
-                    const style = getCategoryStyle(cat)
-                    const isSelected = newCategory === cat
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        className={`note-cat-pill ${isSelected ? 'active' : ''}`}
-                        onClick={() => setNewCategory(cat)}
-                        style={{
-                          backgroundColor: isSelected ? style.bg : 'transparent',
-                          color: isSelected ? style.text : 'var(--text-muted)',
-                          borderColor: isSelected ? style.border : 'rgba(255,255,255,0.08)'
-                        }}
-                      >
-                        {cat}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <textarea
-                className="note-textarea-content"
-                rows={5}
-                placeholder="Escribe el contenido en Markdown..."
-                value={newContent}
-                onChange={e => setNewContent(e.target.value)}
-              />
-
-              <div className="note-form-buttons">
-                <button type="button" className="note-btn-cancel" onClick={handleCancelCreate}>
-                  Cancelar
-                </button>
-                <button type="submit" className="note-btn-save">
-                  Guardar Nota
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         {/* Lista de notas tipo acordeón colapsable/desplegable */}
         <div className="notes-list-container">
+          {/* Formulario de creación de nueva nota */}
+          {isCreating && (
+            <div className="note-create-card">
+              <div className="note-card-form-title">
+                <Sparkles size={14} style={{ color: 'var(--gold)' }} />
+                <span>Crear Nueva Nota</span>
+              </div>
+              <form onSubmit={handleSaveNew}>
+                <input
+                  type="text"
+                  className="note-input-title"
+                  placeholder="Título de la nota (ej. Outliers @cosmoexplains)..."
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  autoFocus
+                />
+
+                <div className="note-category-picker">
+                  <span className="note-picker-label">Categoría:</span>
+                  <div className="note-category-pills">
+                    {DEFAULT_CATEGORIES.map(cat => {
+                      const style = getCategoryStyle(cat)
+                      const isSelected = newCategory === cat
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          className={`note-cat-pill ${isSelected ? 'active' : ''}`}
+                          onClick={() => setNewCategory(cat)}
+                          style={{
+                            backgroundColor: isSelected ? style.bg : 'transparent',
+                            color: isSelected ? style.text : 'var(--text-muted)',
+                            borderColor: isSelected ? style.border : 'rgba(255,255,255,0.08)'
+                          }}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <textarea
+                  className="note-textarea-content"
+                  rows={5}
+                  placeholder="Escribe el contenido en Markdown..."
+                  value={newContent}
+                  onChange={e => setNewContent(e.target.value)}
+                />
+
+                <div className="note-form-buttons">
+                  <button type="button" className="note-btn-cancel" onClick={handleCancelCreate}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="note-btn-save">
+                    Guardar Nota
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {notes.length === 0 && !isCreating ? (
             <div className="notes-empty-state">
               <div className="notes-empty-icon">

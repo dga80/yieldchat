@@ -680,7 +680,10 @@ export default function App() {
             try {
               const event = JSON.parse(line.replace('data: ', '').trim())
 
-              if (event.type === 'model_info') {
+              if (event.type === 'ping') {
+                // Heartbeat to keep connection alive across proxies
+                continue
+              } else if (event.type === 'model_info') {
                 setStatus(prev => ({ ...prev, active_gemini_model: event.model }))
               } else if (event.type === 'tool_start') {
                 const rawName = event.message || event.tool || 'Procesando'

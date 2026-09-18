@@ -165,7 +165,8 @@ function MessageItemComponent({ message, onSaveAsNote }) {
                 {message.content}
               </ReactMarkdown>
 
-              <div className="message-agent-footer-actions">
+              {message.id !== 'streaming-agent' && !message.isStreaming && (
+                <div className="message-agent-footer-actions">
                 <button
                   type="button"
                   className="msg-footer-action-btn"
@@ -196,6 +197,7 @@ function MessageItemComponent({ message, onSaveAsNote }) {
                   </button>
                 )}
               </div>
+              )}
             </div>
           )}
         </div>

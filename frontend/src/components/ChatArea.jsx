@@ -231,7 +231,7 @@ export default function ChatArea({
         )}
 
         {/* Thinking / Tool Execution Indicator */}
-        {loading && !streamingMessage && (
+        {loading && (
           <div className="message-row">
             <div className="message-avatar avatar-agent pulse-avatar">
               <Bot size={18} />
@@ -247,7 +247,7 @@ export default function ChatArea({
                   <span className="thinking-text">
                     {currentTool 
                       ? (currentTool.startsWith('Redactando') || currentTool.includes('Parte') ? currentTool : `Ejecutando ${currentTool}...`) 
-                      : 'YieldChat está procesando y creando...'}
+                      : (streamingMessage ? 'Redactando siguiente parte en bucle autónomo...' : 'YieldChat está procesando y creando...')}
                   </span>
                 </div>
                 {onStop && (

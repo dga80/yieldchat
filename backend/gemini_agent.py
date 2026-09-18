@@ -111,16 +111,31 @@ AVAILABLE_TOOLS = [
 
 
 def clean_script_chunk(text: str) -> str:
-    """Elimina preguntas de cierre conversacional intermedias (ej. ¿quieres que continúe?) para locución limpia."""
+    """Elimina acotaciones de fin de parte, esperas de confirmación o preguntas para locución limpia."""
+    cleaned = text.rstrip()
+    
+    # 1. Eliminar acotaciones entre paréntesis o asteriscos sobre fin de parte, espera de confirmación, etc.
+    cleaned = re.sub(
+        r'[\*\_\s]*\(?(?:fin de la parte|fin parte|parte \d+ finalizada|quedo a la espera|a la espera|espero tu confirmaci[óo]n).*?\)?[\*\_\s]*$',
+        '',
+        cleaned,
+        flags=re.IGNORECASE | re.DOTALL
+    ).rstrip()
+    
+    # 2. Eliminar preguntas conversacionales de continuación
     patterns = [
-        r"(?:¿|¡)?(?:quieres|deseas|te gustaría)\s+que\s+(?:continúe|siga|redacte).*",
-        r"(?:dime|avísame|indícame)\s+(?:si|cuando)\s+(?:quieres|deseas)\s+que\s+(?:continúe|siga).*",
-        r"(?:¿|¡)?pasamos\s+a\s+la\s+(?:siguiente|próxima)\s+parte\??.*",
-        r"(?:¿|¡)?quieres\s+hacer\s+algún\s+ajuste\s+antes\s+de\s+seguir\??.*"
+        r'(?:¿|¡)?(?:quieres|deseas|te gustaría)\s+que\s+(?:continúe|siga|redacte).*$',
+        r'(?:dime|avísame|indícame)\s+(?:si|cuando)\s+(?:quieres|deseas)\s+que\s+(?:continúe|siga).*$',
+        r'(?:¿|¡)?pasamos\s+a\s+la\s+(?:siguiente|próxima)\s+parte\??.*$',
+        r'(?:¿|¡)?quieres\s+hacer\s+algún\s+ajuste\s+antes\s+de\s+seguir\??.*$',
+        r'(?:quedo a la espera|a la espera)\s+de\s+tu\s+confirmaci[óo]n.*$',
+        r'\(?fin de la parte \d+.*?\)?$'
     ]
-    cleaned = text
     for p in patterns:
-        cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE | re.DOTALL).rstrip()
+        cleaned = re.sub(p, '', cleaned, flags=re.IGNORECASE | re.MULTILINE).rstrip()
+        
+    # 3. Eliminar líneas finales de asteriscos, guiones o separadores residuales
+    cleaned = re.sub(r'(\n\s*[\*\-_]{3,}\s*)+$', '', cleaned).rstrip()
     return cleaned
 
 
@@ -163,12 +178,15 @@ def detect_multi_part_request(user_message: str, history_messages: Optional[List
         'del tirón', 'del tiron', 'de un tirón', 'de un tiron',
         'bucle autónomo', 'bucle autonomo', 'de forma continua', 'ininterrumpid',
         'todas las partes', 'las 9 partes', 'partes seguidas', 'completo en',
-        'todas seguidas'
+        'todas seguidas', 'una detrás de otra', 'una detras de otra',
+        'siguientes partes', 'partes que faltan', 'termina el guion',
+        'completa el guion', 'sigue con el guion', 'continúa el guion', 'continua el guion',
+        'crea las partes en bucle', 'en bucle'
     ]
     is_auto = any(ind in msg for ind in auto_indicators)
     
-    # 1. Rango explícito: 'de la parte 3 a la 9', 'parte 2 hasta 9'
-    range_match = re.search(r'(?:de la\s+)?parte\s+(\d+)\s+(?:a|hasta)\s+(?:la\s+)?(?:parte\s+)?(\d+)', msg)
+    # 1. Rango explícito: 'de la parte 3 a la 9', 'partes 2 a 9', 'parte 2 hasta 9'
+    range_match = re.search(r'(?:de la\s+|de las\s+|las\s+)?partes?\s+(\d+)\s+(?:a|hasta|al)\s+(?:la\s+|las\s+)?(?:partes?\s+)?(\d+)', msg)
     if range_match:
         start_p = int(range_match.group(1))
         end_p = int(range_match.group(2))
@@ -412,9 +430,20 @@ async def stream_agent_chat(
         start_part = multi_part_info["start"]
         total_parts = multi_part_info["total"]
         if start_part == 1:
-            directive = f"\n\n[DIRECTIVA AUTÓNOMA]: Comienza redactando la PARTE 1 de {total_parts}. Sin introducciones vacías ni saludos. Sin marcas de tiempo [00:00]. Empieza directamente con el encabezado '## PARTE 1: [TÍTULO]' y la narración completa."
+            directive = (
+                f"\n\n[DIRECTIVA DE BUCLE AUTÓNOMO ININTERRUMPIDO]: El usuario ha solicitado redactar las {total_parts} partes de forma continua. "
+                f"Redacta de inmediato la PARTE 1 de {total_parts}. "
+                f"REGLA OBLIGATORIA: NO te despidas, NO digas 'fin de la parte', NO digas 'quedo a la espera de confirmación', "
+                f"NO hagas preguntas ni pidas confirmación, NO incluyas marcas de tiempo (ej. [00:00]). "
+                f"Empieza directamente con '## PARTE 1: [TÍTULO]' y termina la narración limpiamente sin acotaciones finales."
+            )
         else:
-            directive = f"\n\n[DIRECTIVA AUTÓNOMA]: Continúa el guion redactando la PARTE {start_part} de {total_parts}. Sin introducciones vacías ni preguntas. Sin marcas de tiempo [00:00]. Empieza directamente con el encabezado '## PARTE {start_part}: [TÍTULO]' y la narración completa."
+            directive = (
+                f"\n\n[DIRECTIVA DE BUCLE AUTÓNOMO ININTERRUMPIDO]: Continúa el guion redactando la PARTE {start_part} de {total_parts}. "
+                f"REGLA OBLIGATORIA: NO te despidas, NO digas 'fin de la parte', NO digas 'quedo a la espera de confirmación', "
+                f"NO hagas preguntas ni pidas confirmación, NO incluyas marcas de tiempo (ej. [00:00]). "
+                f"Empieza directamente con '## PARTE {start_part}: [TÍTULO]' y termina la narración limpiamente sin acotaciones finales."
+            )
 
         if isinstance(initial_payload, list):
             initial_payload = list(initial_payload) + [types.Part.from_text(text=directive)]
@@ -432,17 +461,30 @@ async def stream_agent_chat(
                     "tool": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']} autónomamente...",
                     "message": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']} autónomamente..."
                 }
-            first_response = await asyncio.wait_for(
-                asyncio.to_thread(curr_chat.send_message, initial_payload),
-                timeout=60.0
-            )
-            chat = curr_chat
-            selected_model_name = model_name
-            break
-        except asyncio.TimeoutError:
-            print(f"[GeminiAgent] Timeout (60s) excedido con modelo {model_name}. Intentando fallback...")
-            failed_attempts.append(f"{model_name}: Timeout")
-            continue
+
+            task = asyncio.create_task(asyncio.to_thread(curr_chat.send_message, initial_payload))
+            while not task.done():
+                done, _ = await asyncio.wait([task], timeout=4.0)
+                if done:
+                    try:
+                        first_response = task.result()
+                        chat = curr_chat
+                        selected_model_name = model_name
+                    except Exception as ex:
+                        print(f"[GeminiAgent] Error ejecutando send_message con modelo {model_name}: {ex}")
+                    break
+                else:
+                    if is_disconnected:
+                        try:
+                            if await is_disconnected():
+                                task.cancel()
+                                break
+                        except Exception:
+                            pass
+                    yield {"type": "ping"}
+
+            if chat and first_response:
+                break
         except Exception as e:
             failed_attempts.append(f"{model_name}: {type(e).__name__} - {str(e)[:100]}")
             print(f"[GeminiAgent] Fallo con modelo {model_name}: {e}")
@@ -496,9 +538,13 @@ async def stream_agent_chat(
 
     # Bucle autónomo continuo hasta total_p
     for part_idx in range(start_p + 1, total_p + 1):
-        if is_disconnected and await is_disconnected():
-            print(f"[GeminiAgent] Bucle autónomo detenido por cancelación del cliente en parte {part_idx}/{total_p}")
-            break
+        if is_disconnected:
+            try:
+                if await is_disconnected():
+                    print(f"[GeminiAgent] Bucle autónomo detenido por cancelación del cliente en parte {part_idx}/{total_p}")
+                    break
+            except Exception:
+                pass
 
         yield {
             "type": "tool_start",
@@ -509,61 +555,97 @@ async def stream_agent_chat(
         cont_prompt = (
             f"Continúa de inmediato con la PARTE {part_idx} de {total_p}. "
             f"Escribe la narración completa, fluida y con máxima profundidad para esta sección del vídeo. "
-            f"NO te detengas, NO pidas confirmación ni hagas preguntas (como '¿quieres que siga?'). "
+            f"REGLA OBLIGATORIA: NO te detengas, NO digas 'fin de la parte', NO digas 'quedo a la espera de confirmación', "
+            f"NO pidas confirmación ni hagas preguntas (como '¿quieres que siga?'). "
             f"NUNCA incluyas marcas de tiempo (ej. [00:00]). "
-            f"Empieza directamente con el encabezado '## PARTE {part_idx}: [TÍTULO]' y el texto de locución."
+            f"Empieza directamente con el encabezado '## PARTE {part_idx}: [TÍTULO]' y el texto de locución sin despedidas."
         )
 
-        try:
-            next_resp = await asyncio.wait_for(
-                asyncio.to_thread(chat.send_message, cont_prompt),
-                timeout=70.0
-            )
-            raw_chunk = next_resp.text if hasattr(next_resp, "text") else ""
-            cleaned_chunk = clean_script_chunk(raw_chunk)
-            
-            if not cleaned_chunk:
-                print(f"[GeminiAgent] Parte {part_idx} finalizó con texto vacío. Deteniendo bucle.")
-                yield {"type": "tool_done"}
+        cleaned_chunk = ""
+        max_retries = 2
+        for attempt in range(max_retries):
+            task = asyncio.create_task(asyncio.to_thread(chat.send_message, cont_prompt))
+            next_resp = None
+            client_disconnected = False
+
+            while not task.done():
+                done, _ = await asyncio.wait([task], timeout=4.0)
+                if done:
+                    try:
+                        next_resp = task.result()
+                    except Exception as ex:
+                        print(f"[GeminiAgent] Error en send_message de parte {part_idx} (intento {attempt+1}): {ex}")
+                    break
+                else:
+                    if is_disconnected:
+                        try:
+                            if await is_disconnected():
+                                print(f"[GeminiAgent] Cliente desconectado durante generación de parte {part_idx}")
+                                task.cancel()
+                                client_disconnected = True
+                                break
+                        except Exception:
+                            pass
+                    yield {"type": "ping"}
+
+            if client_disconnected:
                 break
 
-            accumulated_parts.append(cleaned_chunk)
-            formatted_chunk = f"\n\n---\n\n{cleaned_chunk}"
-            full_assistant_content += formatted_chunk
-            yield {"type": "content", "content": formatted_chunk}
-            yield {"type": "tool_done"}
+            if next_resp:
+                raw_chunk = next_resp.text if hasattr(next_resp, "text") else ""
+                cleaned_chunk = clean_script_chunk(raw_chunk)
+                if cleaned_chunk:
+                    break
+            
+            if attempt < max_retries - 1:
+                print(f"[GeminiAgent] Reintentando parte {part_idx} en 3 segundos...")
+                await asyncio.sleep(3.0)
 
-            created_notes = _session_created_notes.pop(session_id, [])
-            for n in created_notes:
-                yield {"type": "note_created", "note": n}
-
-        except asyncio.TimeoutError:
-            print(f"[GeminiAgent] Timeout en parte {part_idx}. Cerrando bucle.")
+        if not cleaned_chunk:
+            print(f"[GeminiAgent] Parte {part_idx} no devolvió contenido tras reintentos. Deteniendo bucle.")
             yield {"type": "tool_done"}
             break
-        except Exception as ex:
-            print(f"[GeminiAgent] Error generando parte {part_idx}: {ex}")
-            yield {"type": "tool_done"}
-            break
+
+        accumulated_parts.append(cleaned_chunk)
+        formatted_chunk = f"\n\n---\n\n{cleaned_chunk}"
+        full_assistant_content += formatted_chunk
+        yield {"type": "content", "content": formatted_chunk}
+        yield {"type": "tool_done"}
+
+        created_notes = _session_created_notes.pop(session_id, [])
+        for n in created_notes:
+            yield {"type": "note_created", "note": n}
 
     # Empaquetado final unificado y tarjeta descargable
     if accumulated_parts:
         full_script = "\n\n---\n\n".join(accumulated_parts)
         num_generated = len(accumulated_parts)
         
-        # 1. Guardar automáticamente en Notas
-        note_title = f"Guion Completo ({num_generated} Partes)"
-        note = memory_manager.create_note(session_id, note_title, full_script, "Guion")
-        yield {"type": "note_created", "note": note}
-        
-        # 2. Tarjeta con bloque descargable en 1 clic
-        txt_filename = f"guion_completo_{num_generated}_partes.txt"
-        download_card = (
-            f"\n\n---\n\n"
-            f"### 📄 Guion Completo ({num_generated} Partes) Unificado\n\n"
-            f"````txt:{txt_filename}\n{full_script}\n````\n\n"
-            f"*📌 El guion completo se ha guardado automáticamente en tu panel lateral de Notas.*"
-        )
+        if num_generated < total_p:
+            note_title = f"Guion Parcial ({num_generated} de {total_p} Partes)"
+            note = memory_manager.create_note(session_id, note_title, full_script, "Guion")
+            yield {"type": "note_created", "note": note}
+            
+            txt_filename = f"guion_parcial_{num_generated}_de_{total_p}_partes.txt"
+            download_card = (
+                f"\n\n---\n\n"
+                f"### 📄 Guion ({num_generated} de {total_p} Partes Generadas)\n\n"
+                f"````txt:{txt_filename}\n{full_script}\n````\n\n"
+                f"*📌 Se ha guardado como nota en tu panel lateral. Puedes pedir 'continúa el guion desde la parte {num_generated + 1}' para redactar las partes restantes.*"
+            )
+        else:
+            note_title = f"Guion Completo ({total_p} Partes)"
+            note = memory_manager.create_note(session_id, note_title, full_script, "Guion")
+            yield {"type": "note_created", "note": note}
+            
+            txt_filename = f"guion_completo_{total_p}_partes.txt"
+            download_card = (
+                f"\n\n---\n\n"
+                f"### 📄 Guion Completo ({total_p} Partes) Unificado\n\n"
+                f"````txt:{txt_filename}\n{full_script}\n````\n\n"
+                f"*📌 El guion completo se ha guardado automáticamente en tu panel lateral de Notas.*"
+            )
+
         full_assistant_content += download_card
         yield {"type": "content", "content": download_card}
 

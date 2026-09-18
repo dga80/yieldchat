@@ -2890,7 +2890,7 @@ html, body {
 
 /* Contenedor Principal de la Columna de Notas */
 .notes-panel {
-  width: 360px;
+  width: 380px;
   background-color: var(--bg-sidebar);
   border-left: 1px solid var(--border);
   display: flex;
@@ -2919,11 +2919,12 @@ html, body {
 .notes-panel-header {
   height: 56px;
   min-height: 56px;
-  padding: 0 14px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   flex-shrink: 0;
   background: rgba(7, 10, 16, 0.95);
 }
@@ -2931,13 +2932,21 @@ html, body {
 .notes-panel-title-group {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.notes-panel-title-texts {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .notes-brand-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.3);
@@ -2953,17 +2962,24 @@ html, body {
   font-weight: 700;
   color: var(--text-main);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
 }
 
 .notes-header-subtitle {
   font-size: 10.5px;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .notes-panel-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .notes-download-all-btn {
@@ -2978,6 +2994,7 @@ html, body {
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .notes-download-all-btn:hover {
@@ -2990,15 +3007,16 @@ html, body {
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.35);
   color: var(--gold);
-  padding: 4px 9px;
+  padding: 4px 8px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .notes-add-btn:hover:not(:disabled) {

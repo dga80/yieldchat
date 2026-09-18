@@ -215,8 +215,8 @@ export default function NotesPanel({
             <div className="notes-brand-icon">
               <StickyNote size={17} />
             </div>
-            <div>
-              <div className="notes-header-title">Notas de la Conversación</div>
+            <div className="notes-panel-title-texts">
+              <div className="notes-header-title" title="Notas de la Conversación">Notas de la Conversación</div>
               <div className="notes-header-subtitle">
                 {notes.length} {notes.length === 1 ? 'nota guardada' : 'notas guardadas'}
               </div>

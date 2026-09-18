@@ -102,6 +102,22 @@ export default function Sidebar({
     return () => window.removeEventListener('click', handleClickOutside)
   }, [])
 
+  // Asegurar que la carpeta que contiene la sesión activa esté siempre desplegada
+  useEffect(() => {
+    if (activeSessionId && folders.length > 0 && sessions.length > 0) {
+      const activeSession = sessions.find(s => s.id === activeSessionId)
+      if (activeSession?.folder_id && collapsedFolders[activeSession.folder_id]) {
+        setCollapsedFolders(prev => {
+          const next = { ...prev, [activeSession.folder_id]: false }
+          try {
+            localStorage.setItem('yieldchat_collapsed_folders', JSON.stringify(next))
+          } catch (e) {}
+          return next
+        })
+      }
+    }
+  }, [activeSessionId, sessions, folders])
+
   const handleSetViewMode = (mode) => {
     setViewMode(mode)
     try {

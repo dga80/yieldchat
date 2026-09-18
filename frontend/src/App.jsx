@@ -419,13 +419,14 @@ export default function App() {
       return
     }
     // Carga inmediata desde caché
+    let cachedNotes = []
     try {
       const cached = localStorage.getItem(`yieldchat_cached_notes_${sessionId}`)
       if (cached) {
-        const parsed = JSON.parse(cached)
-        setNotes(parsed)
-        if (parsed.length > 0) {
-          setExpandedNoteIds(prev => prev.length ? prev : [parsed[0].id])
+        cachedNotes = JSON.parse(cached)
+        if (Array.isArray(cachedNotes) && cachedNotes.length > 0) {
+          setNotes(cachedNotes)
+          setExpandedNoteIds(prev => prev.length ? prev : [cachedNotes[0].id])
         }
       }
     } catch (e) {}
@@ -434,12 +435,17 @@ export default function App() {
       const res = await fetch(`${API_BASE}/sessions/${sessionId}/notes`)
       if (res.ok) {
         const data = await res.json()
-        setNotes(data)
-        try {
-          localStorage.setItem(`yieldchat_cached_notes_${sessionId}`, JSON.stringify(data))
-        } catch (e) {}
-        if (data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
+          setNotes(data)
+          try {
+            localStorage.setItem(`yieldchat_cached_notes_${sessionId}`, JSON.stringify(data))
+          } catch (e) {}
           setExpandedNoteIds(prev => prev.length ? prev : [data[0].id])
+        } else if (cachedNotes && cachedNotes.length > 0) {
+          // Si el servidor aún no tiene las notas pero las teníamos en caché, conservarlas
+          console.warn('Backend returned empty notes list, preserving locally cached notes')
+        } else {
+          setNotes([])
         }
       }
     } catch (e) {

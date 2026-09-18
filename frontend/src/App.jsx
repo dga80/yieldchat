@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import MemoryModal from './components/MemoryModal'
 import NotesPanel from './components/NotesPanel'
+import ImageStudioModal from './components/ImageStudioModal'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -80,6 +81,7 @@ export default function App() {
   const [status, setStatus] = useState(null)
   const [insights, setInsights] = useState([])
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
+  const [isImageStudioOpen, setIsImageStudioOpen] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth > 900
@@ -832,6 +834,10 @@ export default function App() {
           setIsSidebarOpen(false)
           setIsMemoryOpen(true)
         }}
+        onOpenImageStudio={() => {
+          setIsSidebarOpen(false)
+          setIsImageStudioOpen(true)
+        }}
         onSyncGitHub={handleSyncGitHub}
         syncing={syncing}
         syncStatus={syncStatus}
@@ -859,6 +865,7 @@ export default function App() {
         notesCount={notes.length}
         isNotesOpen={isNotesOpen}
         onToggleNotes={() => setIsNotesOpen(prev => !prev)}
+        onOpenImageStudio={() => setIsImageStudioOpen(true)}
         onSaveAsNote={handleSaveMessageAsNote}
       />
 
@@ -883,6 +890,14 @@ export default function App() {
         onSyncGitHub={handleSyncGitHub}
         syncing={syncing}
         syncStatus={syncStatus}
+      />
+
+      <ImageStudioModal
+        isOpen={isImageStudioOpen}
+        onClose={() => setIsImageStudioOpen(false)}
+        folders={folders}
+        activeFolderId={activeSession?.folder_id}
+        activeSessionId={activeSessionId}
       />
     </div>
   )

@@ -303,13 +303,18 @@ function UserFileAttachmentCard({ info }) {
   )
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
 const ImageCard = React.memo(function ImageCard({ src, alt, onOpenLightbox }) {
   const [downloading, setDownloading] = useState(false)
+  const resolvedSrc = src?.startsWith('/api')
+    ? `${API_BASE.replace(/\/api$/, '')}${src}`
+    : src
 
   const handleDownload = async () => {
     setDownloading(true)
     try {
-      const response = await fetch(src)
+      const response = await fetch(resolvedSrc)
       const blob = await response.blob()
       const blobUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -344,13 +349,13 @@ const ImageCard = React.memo(function ImageCard({ src, alt, onOpenLightbox }) {
               <Maximize2 size={13} />
             </button>
           )}
-          <a href={src} target="_blank" rel="noopener noreferrer" className="image-action-btn" title="Abrir en pestaña nueva">
+          <a href={resolvedSrc} target="_blank" rel="noopener noreferrer" className="image-action-btn" title="Abrir en pestaña nueva">
             <ExternalLink size={13} />
           </a>
         </div>
       </div>
       <div className="image-preview-container" onClick={onOpenLightbox} style={{ cursor: onOpenLightbox ? 'pointer' : 'default' }}>
-        <img src={src} alt={alt || 'Imagen generada'} className="generated-img" loading="lazy" />
+        <img src={resolvedSrc} alt={alt || 'Imagen generada'} className="generated-img" loading="lazy" />
       </div>
     </div>
   )

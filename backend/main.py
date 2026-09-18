@@ -19,6 +19,7 @@ import subprocess
 
 import memory_manager
 import gemini_agent
+import image_tools
 
 load_dotenv()
 
@@ -292,6 +293,14 @@ class UpdateNoteRequest(BaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
 
+class GenerateImageRequest(BaseModel):
+    prompt: str
+    folder_id: Optional[str] = None
+    session_id: Optional[str] = None
+    aspect_ratio: Optional[str] = "16:9"
+    model: Optional[str] = "google-banana"
+    estilo_adicional: Optional[str] = None
+
 
 # ── Rutas de Estado y Modelo ──────────────────────────────────────────────────
 
@@ -357,6 +366,39 @@ def get_diag():
 
 
 # ── Rutas de Archivos e Imágenes ──────────────────────────────────────────────
+
+@app.post("/api/images/generate")
+def api_generate_image(req: GenerateImageRequest):
+    if not req.prompt or not req.prompt.strip():
+        raise HTTPException(status_code=400, detail="El prompt no puede estar vacío")
+    res = image_tools.generar_imagen(
+        prompt=req.prompt,
+        aspect_ratio=req.aspect_ratio or "16:9",
+        modelo=req.model or "google-banana",
+        estilo_adicional=req.estilo_adicional,
+        folder_id=req.folder_id,
+        session_id=req.session_id
+    )
+    return res
+
+
+@app.get("/api/images/gallery")
+def api_get_gallery(folder_id: Optional[str] = None, session_id: Optional[str] = None):
+    return memory_manager.list_generated_images(folder_id=folder_id, session_id=session_id)
+
+
+@app.delete("/api/images/{image_id}")
+def api_delete_image(image_id: str):
+    success = memory_manager.delete_generated_image(image_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+    return {"status": "deleted", "id": image_id}
+
+
+@app.get("/api/images/context")
+def api_get_visual_context(folder_id: Optional[str] = None):
+    return memory_manager.get_channel_visual_context(folder_id=folder_id)
+
 
 @app.get("/api/images/{filename}")
 def get_generated_image(filename: str):

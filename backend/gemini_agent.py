@@ -96,6 +96,34 @@ def herramienta_crear_nota_sesion(titulo: str, contenido: str, categoria: str = 
     _session_created_notes[s_id].append(note)
     return {"status": "nota_creada", "nota": note}
 
+def herramienta_generar_imagen(prompt: str, aspect_ratio: str = "16:9", estilo: str = "") -> dict:
+    """Genera una imagen o miniatura de alta definición con IA usando el pipeline Google Banana / Flux, respetando la memoria visual y estilo del canal (16:9 para YouTube, 9:16 para Shorts, 1:1 para perfil)."""
+    s_id = _current_session_id.get()
+    folder_id = None
+    if s_id:
+        try:
+            import sqlite3
+            conn = sqlite3.connect(memory_manager.DB_PATH)
+            cur = conn.cursor()
+            cur.execute("SELECT folder_id FROM sessions WHERE id = ?", (s_id,))
+            row = cur.fetchone()
+            if row:
+                folder_id = row[0]
+            conn.close()
+        except Exception:
+            pass
+
+    import image_tools
+    res = image_tools.generar_imagen(
+        prompt=prompt,
+        aspect_ratio=aspect_ratio or "16:9",
+        modelo="google-banana",
+        estilo_adicional=estilo,
+        folder_id=folder_id,
+        session_id=s_id
+    )
+    return res
+
 
 AVAILABLE_TOOLS = [
     herramienta_analizar_canal,
@@ -106,7 +134,8 @@ AVAILABLE_TOOLS = [
     herramienta_evaluar_packaging_danilov,
     herramienta_diseccionar_hook_30s,
     herramienta_niche_bending_generator,
-    herramienta_crear_nota_sesion
+    herramienta_crear_nota_sesion,
+    herramienta_generar_imagen
 ]
 
 

@@ -70,6 +70,22 @@ def init_db():
         FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS generated_images (
+        id TEXT PRIMARY KEY,
+        session_id TEXT,
+        folder_id TEXT,
+        prompt TEXT NOT NULL,
+        enhanced_prompt TEXT,
+        aspect_ratio TEXT DEFAULT '16:9',
+        model TEXT DEFAULT 'google-banana',
+        image_url TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        metadata TEXT
+    )
+    """)
     
     conn.commit()
     conn.close()
@@ -368,4 +384,144 @@ def delete_note(note_id: str) -> bool:
     conn.commit()
     conn.close()
     return deleted
+
+
+# ── Gestión de Imágenes y Memoria Visual de Canal ───────────────────────────
+
+def save_generated_image(
+    image_id: str,
+    prompt: str,
+    enhanced_prompt: str,
+    image_url: str,
+    filename: str,
+    folder_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    aspect_ratio: str = "16:9",
+    model: str = "google-banana",
+    metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Guarda los metadatos de una imagen generada en la base de datos."""
+    now = datetime.now(timezone.utc).isoformat()
+    meta_json = json.dumps(metadata or {})
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO generated_images (
+            id, session_id, folder_id, prompt, enhanced_prompt,
+            aspect_ratio, model, image_url, filename, created_at, metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        image_id, session_id, folder_id, prompt, enhanced_prompt,
+        aspect_ratio, model, image_url, filename, now, meta_json
+    ))
+    conn.commit()
+    conn.close()
+
+    return {
+        "id": image_id,
+        "session_id": session_id,
+        "folder_id": folder_id,
+        "prompt": prompt,
+        "enhanced_prompt": enhanced_prompt,
+        "aspect_ratio": aspect_ratio,
+        "model": model,
+        "image_url": image_url,
+        "filename": filename,
+        "created_at": now,
+        "metadata": metadata or {}
+    }
+
+
+def list_generated_images(
+    folder_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    limit: int = 50
+) -> List[Dict[str, Any]]:
+    """Lista las imágenes generadas, filtrables por carpeta o sesión."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    query = "SELECT * FROM generated_images WHERE 1=1"
+    params = []
+
+    if folder_id:
+        query += " AND folder_id = ?"
+        params.append(folder_id)
+    if session_id:
+        query += " AND session_id = ?"
+        params.append(session_id)
+
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    results = []
+    for r in rows:
+        item = dict(r)
+        if item.get("metadata"):
+            try:
+                item["metadata"] = json.loads(item["metadata"])
+            except Exception:
+                pass
+        results.append(item)
+    return results
+
+
+def delete_generated_image(image_id: str) -> bool:
+    """Elimina el registro de una imagen generada."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM generated_images WHERE id = ?", (image_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def get_channel_visual_context(folder_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Recupera el contexto visual y reglas de estilo aprendidas para una carpeta/canal.
+    Devuelve las directrices de miniatura y estilo visual acumuladas.
+    """
+    all_insights = get_all_insights()
+    channel_name = None
+    folder_color = None
+
+    if folder_id:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, color FROM folders WHERE id = ?", (folder_id,))
+        f_row = cursor.fetchone()
+        conn.close()
+        if f_row:
+            channel_name = f_row["name"]
+            folder_color = f_row["color"]
+
+    # Extraer reglas visuales y de miniaturas
+    visual_rules = []
+    for ins in all_insights:
+        cat = (ins.get("categoria") or "").upper()
+        regla = ins.get("regla") or ""
+        if any(kw in cat for kw in ["MINIATURA", "VISUAL", "IMAGEN", "ESTILO"]):
+            visual_rules.append(regla)
+        elif any(kw in regla.lower() for kw in ["ghibli", "makoto shinkai", "miniatura", "anime", "ken burns", "partículas"]):
+            visual_rules.append(regla)
+
+    # Recuperar últimas imágenes de este canal para consistencia
+    recent_images = list_generated_images(folder_id=folder_id, limit=3) if folder_id else []
+
+    return {
+        "folder_id": folder_id,
+        "channel_name": channel_name or "General",
+        "folder_color": folder_color or "#F59E0B",
+        "visual_rules": visual_rules,
+        "recent_prompts": [img.get("enhanced_prompt") or img.get("prompt") for img in recent_images if img.get("prompt")]
+    }
+
 

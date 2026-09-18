@@ -34,6 +34,7 @@ export default function ChatArea({
   notesCount = 0,
   isNotesOpen = false,
   onToggleNotes,
+  onOpenImageStudio,
   onSaveAsNote
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -180,6 +181,16 @@ export default function ChatArea({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ConnectionBadge />
+          {onOpenImageStudio && (
+            <button
+              className="gemini-notes-btn"
+              onClick={onOpenImageStudio}
+              title="Estudio de Imágenes & Miniaturas (Google Banana / Flux)"
+              aria-label="Estudio de Imágenes"
+            >
+              <Sparkles size={17} style={{ color: 'var(--gold)' }} />
+            </button>
+          )}
           <button
             className={`gemini-notes-btn ${isNotesOpen ? 'active' : ''}`}
             onClick={onToggleNotes}

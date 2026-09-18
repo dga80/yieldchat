@@ -45,6 +45,7 @@ export default function Sidebar({
   onDeleteFolder,
   onMoveSessionToFolder,
   onOpenMemory,
+  onOpenImageStudio,
   onSyncGitHub,
   syncing,
   syncStatus,
@@ -569,8 +570,13 @@ export default function Sidebar({
 
         {/* Footer / Long-term Memory & Status */}
         <div className="sidebar-footer">
+          <button className="memory-btn" onClick={onOpenImageStudio} style={{ marginBottom: 4 }}>
+            <Sparkles size={15} style={{ color: 'var(--gold)' }} />
+            <span>Estudio de Imágenes</span>
+          </button>
+
           <button className="memory-btn" onClick={onOpenMemory}>
-            <Brain size={15} style={{ color: 'var(--gold)' }} />
+            <Brain size={15} style={{ color: '#38BDF8' }} />
             <span>Memoria del Agente</span>
           </button>
 

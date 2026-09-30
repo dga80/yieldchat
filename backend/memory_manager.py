@@ -221,6 +221,40 @@ def create_session(session_id: str, title: str, folder_id: Optional[str] = None)
     return {"id": session_id, "title": title, "folder_id": folder_id, "created_at": now, "updated_at": now, "messages": []}
 
 
+def restore_session(
+    session_id: str,
+    title: str,
+    folder_id: Optional[str] = None,
+    created_at: Optional[str] = None,
+    updated_at: Optional[str] = None,
+    messages: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    c_at = created_at or now
+    u_at = updated_at or now
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO sessions (id, title, folder_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (session_id, title, folder_id, c_at, u_at))
+
+    if messages:
+        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        for m in messages:
+            m_role = m.get("role", "user")
+            m_content = m.get("content", "")
+            m_time = m.get("created_at", now)
+            m_tools = json.dumps(m.get("tool_calls"), ensure_ascii=False) if m.get("tool_calls") else None
+            cursor.execute(
+                "INSERT INTO messages (session_id, role, content, tool_calls, created_at) VALUES (?, ?, ?, ?, ?)",
+                (session_id, m_role, m_content, m_tools, m_time)
+            )
+    conn.commit()
+    conn.close()
+    return get_session(session_id) or {"id": session_id, "title": title}
+
+
 def update_session_title(session_id: str, title: str):
     now = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(DB_PATH)

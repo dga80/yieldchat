@@ -115,11 +115,14 @@ export default function App() {
       loadNotesForSession(initialSessionId)
     }
 
-    // Sincronización automática periódica en segundo plano cada 25 segundos (actualiza lista sin resetear chat activo)
+    // Sincronización automática periódica en segundo plano cada 20 segundos (actualiza lista y mensajes sin resetear chat activo)
     const syncInterval = setInterval(() => {
       fetchSyncStatus()
       refreshSessionsList()
-    }, 25000)
+      if (activeSessionIdRef.current) {
+        refreshActiveSessionMessages(activeSessionIdRef.current)
+      }
+    }, 20000)
 
     // Sincronización inmediata al volver a la app o cambiar de ventana/pestaña
     const handleSyncOnResume = () => {
@@ -127,6 +130,9 @@ export default function App() {
         refreshSessionsList()
         fetchFolders()
         fetchSyncStatus()
+        if (activeSessionIdRef.current) {
+          refreshActiveSessionMessages(activeSessionIdRef.current)
+        }
       }
     }
 
@@ -183,17 +189,74 @@ export default function App() {
     }
   }
 
+  const refreshActiveSessionMessages = async (sessionId) => {
+    if (!sessionId) return
+    try {
+      const res = await fetch(`${API_BASE}/sessions/${sessionId}`)
+      if (!res.ok) return
+      const data = await res.json()
+      if (data && data.messages) {
+        setMessages(prev => {
+          if (data.messages.length > prev.length) {
+            return data.messages
+          }
+          return prev
+        })
+        setActiveSession(prev => prev ? { ...prev, title: data.title || prev.title } : data)
+        try {
+          localStorage.setItem('yieldchat_cached_active_session', JSON.stringify(data))
+        } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('Background active session sync error:', e)
+    }
+  }
+
+  const autoHealMissingSession = async (serverSessions) => {
+    try {
+      const cachedActiveRaw = localStorage.getItem('yieldchat_cached_active_session')
+      if (cachedActiveRaw) {
+        const cachedActive = JSON.parse(cachedActiveRaw)
+        if (cachedActive?.id && cachedActive.messages?.length > 0 && !serverSessions.some(s => s.id === cachedActive.id)) {
+          console.log('[AutoHeal] Resucitando sesión perdida en el servidor:', cachedActive.id)
+          await fetch(`${API_BASE}/sessions/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: cachedActive.id,
+              title: cachedActive.title || 'Conversación Recuperada',
+              folder_id: cachedActive.folder_id,
+              created_at: cachedActive.created_at,
+              updated_at: cachedActive.updated_at,
+              messages: cachedActive.messages
+            })
+          })
+          fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
+          const refreshRes = await fetch(`${API_BASE}/sessions`)
+          if (refreshRes.ok) {
+            const updated = await refreshRes.json()
+            setSessions(updated)
+            return updated
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('AutoHeal check failed:', err)
+    }
+    return serverSessions
+  }
+
   const refreshSessionsList = async () => {
     try {
       const res = await fetch(`${API_BASE}/sessions`)
       if (!res.ok) return
-      const data = await res.json()
+      let data = await res.json()
+      data = await autoHealMissingSession(data)
       setSessions(data)
       try {
         localStorage.setItem('yieldchat_cached_sessions', JSON.stringify(data))
       } catch (e) {}
 
-      // Solo si no hay ninguna sesión activa seleccionada (caso muy raro), seleccionar una
       if (!activeSessionIdRef.current && data.length > 0) {
         selectSession(data[0].id, false)
       }
@@ -208,7 +271,8 @@ export default function App() {
       setIsLoadingSessions(prev => sessions.length === 0 ? true : prev)
       const res = await fetch(`${API_BASE}/sessions`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      let data = await res.json()
+      data = await autoHealMissingSession(data)
       setSessions(data)
       setIsLoadingSessions(false)
       setSessionsError(false)
@@ -224,12 +288,7 @@ export default function App() {
         : (data.length > 0 ? data[0].id : null)
 
       if (targetId) {
-        // Cargar conversación si no hay mensajes o es distinta a la activa actual
-        const currentActive = activeSessionIdRef.current
-        const currentMsgs = messagesRef.current
-        if (!currentActive || currentActive !== targetId || currentMsgs.length === 0) {
-          selectSession(targetId, false)
-        }
+        selectSession(targetId, false)
       } else if (data.length === 0) {
         handleNewChat()
       }
@@ -741,6 +800,11 @@ export default function App() {
       }
       fetchMemory() // refresh memory in case the agent stored a new insight
       fetchSyncStatus() // refresh sync status
+
+      // Sincronizar de inmediato con GitHub en segundo plano para persistir antes del reposo de Render
+      try {
+        fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
+      } catch (e) {}
     } catch (e) {
       if (e.name === 'AbortError') {
         console.log('Consulta abortada por el usuario.')

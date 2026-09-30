@@ -79,9 +79,12 @@ def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo pl
         subprocess.run(["git", "config", "user.name", user_name], cwd=REPO_DIR, env=env, check=False)
         subprocess.run(["git", "config", "user.email", user_email], cwd=REPO_DIR, env=env, check=False)
 
-        # 1. Stage memory files
+        # 1. Stage memory files and saved conversations
+        files_to_stage = ["backend/learned_insights.json", "backend/chat_history.db"]
+        if os.path.exists(os.path.join(REPO_DIR, "conversations")):
+            files_to_stage.append("conversations")
         subprocess.run(
-            ["git", "add", "backend/learned_insights.json", "backend/chat_history.db"],
+            ["git", "add"] + files_to_stage,
             cwd=REPO_DIR,
             env=env,
             check=True
@@ -89,7 +92,7 @@ def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo pl
         
         # 2. Check if there are changes to commit
         status_res = subprocess.run(
-            ["git", "status", "--porcelain", "backend/learned_insights.json", "backend/chat_history.db"],
+            ["git", "status", "--porcelain"] + files_to_stage,
             cwd=REPO_DIR,
             env=env,
             capture_output=True,
@@ -251,6 +254,14 @@ async def on_startup():
 class CreateSessionRequest(BaseModel):
     title: Optional[str] = "Nueva Conversación"
     folder_id: Optional[str] = None
+
+class RestoreSessionRequest(BaseModel):
+    id: str
+    title: str
+    folder_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    messages: Optional[List[Dict[str, Any]]] = None
 
 class UpdateSessionRequest(BaseModel):
     title: str
@@ -454,6 +465,18 @@ def list_sessions():
 def create_session(req: CreateSessionRequest):
     new_id = f"chat-{uuid.uuid4().hex[:10]}"
     return memory_manager.create_session(new_id, req.title or "Nueva Conversación", req.folder_id)
+
+
+@app.post("/api/sessions/restore")
+def api_restore_session(req: RestoreSessionRequest):
+    return memory_manager.restore_session(
+        session_id=req.id,
+        title=req.title,
+        folder_id=req.folder_id,
+        created_at=req.created_at,
+        updated_at=req.updated_at,
+        messages=req.messages
+    )
 
 
 @app.get("/api/sessions/{session_id}")

@@ -217,6 +217,41 @@ export default function Sidebar({
           </div>
         </div>
 
+        {/* Indicador de Entorno / Persistencia */}
+        <div style={{
+          margin: '0 12px 10px 12px',
+          padding: '6px 10px',
+          borderRadius: '8px',
+          fontSize: '11px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'rgba(16, 185, 129, 0.1)'
+            : 'rgba(56, 189, 248, 0.1)',
+          border: typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? '1px solid rgba(16, 185, 129, 0.25)'
+            : '1px solid rgba(56, 189, 248, 0.25)',
+          color: typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? '#34D399'
+            : '#38BDF8',
+          fontWeight: 600
+        }}>
+          <span style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            backgroundColor: typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+              ? '#10B981'
+              : '#38BDF8'
+          }} />
+          <span>
+            {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+              ? 'Local (Mac SSD • Permanente)'
+              : 'Nube (Render • Bóveda Local)'}
+          </span>
+        </div>
+
         {/* Action Buttons: New Chat & New Folder */}
         <div className="sidebar-actions-row">
           <button className="new-chat-btn" onClick={() => onNewChat()}>

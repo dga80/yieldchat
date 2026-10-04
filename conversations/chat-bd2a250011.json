@@ -1,0 +1,22 @@
+{
+  "id": "chat-bd2a250011",
+  "title": "busca el chat donde analizabas e",
+  "created_at": "2026-09-12T09:24:45.185906+00:00",
+  "updated_at": "2026-09-12T09:25:13.026959+00:00",
+  "folder_id": null,
+  "messages": [
+    {
+      "role": "user",
+      "content": "busca el chat donde analizabas el ultimo guion de mente kaizen, el de motanai",
+      "tool_calls": null,
+      "created_at": "2026-09-12T09:25:05.524750+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Como modelo de lenguaje no tengo acceso directo al historial de otros chats independientes dentro de tu interfaz de usuario. \n\nSin embargo, tengo **registrados en memoria permanente** todos los parámetros y la arquitectura exacta que definimos para **Mente Kaizen** y el guion de **Mottainai**:\n\n---\n\n### Radiografía del Marco 'Mottainai' (Mente Kaizen):\n* **Eje temático:** El concepto japonés de *Mottainai* (el dolor del desperdicio / respeto absoluto por cada recurso) cruzado con salarios bajos, finanzas personales sin ostentación y riqueza silenciosa (*Silent Wealth*).\n* **Métricas de Guion:**\n  * **Duración objetivo:** 22 a 26 minutos.\n  * **Extensión:** 2.000 a 2.300 palabras (media de referencia: 2.263 palabras).\n  * **Cadencia de locución:** Ritmo pausado de 95–100 palabras por minuto, incorporando pausas reflexivas de 1.5 a 2 segundos entre principios.\n  * **Perfil de consumo:** >60% de escucha pasiva / nocturna (audio-céntrico, voz profunda y cálida estilo ElevenLabs).\n* **Diseño de Miniatura asociado:**\n  * Estilo Seinen / Studio Ghibli nostálgico.\n  * Personaje humilde/anciano a la derecha, espacio despejado a la izquierda.\n  * Texto en 2 líneas: Línea 1 en blanco, Línea 2 en amarillo `#FFD700`, alto contraste para Smart TV.\n\n---\n\n### ¿Qué necesitas recuperar o ejecutar ahora?\n1. **Revisión o reescritura del guion:** Si tienes el borrador o fragmento a mano, pégalo aquí y lo ajusto a la estructura de retención y conteo de palabras exacto.\n2. **Estructura de bloques:** Si necesitas el desglose de capítulos, ganchos de apertura (0:00 a 1:30) y los llamados a la acción (QR en min 2:00 y 14:00).\n3. **Prompt de miniatura:** Si necesitas el código de imagen listo para Midjourney v6.1 / Flux para este vídeo de Mottainai.\n\nIndícame cuál es el paso y lo resolvemos directamente.",
+      "tool_calls": null,
+      "created_at": "2026-09-12T09:25:13.026959+00:00"
+    }
+  ],
+  "notes": []
+}

@@ -160,7 +160,7 @@ def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo pl
                 check=False
             )
             subprocess.run(
-                ["git", "pull", "--rebase", "-X", "theirs", push_target, "main"],
+                ["git", "merge", "--no-edit", "-m", "merge: sincronizar con cambios remotos", "origin/main"],
                 cwd=REPO_DIR,
                 env=env,
                 capture_output=True,
@@ -269,6 +269,7 @@ class UpdateSessionRequest(BaseModel):
 class CreateFolderRequest(BaseModel):
     name: str
     color: Optional[str] = "#F59E0B"
+    id: Optional[str] = None
 
 class UpdateFolderRequest(BaseModel):
     name: Optional[str] = None
@@ -436,7 +437,7 @@ def list_folders():
 
 @app.post("/api/folders")
 def create_folder(req: CreateFolderRequest):
-    new_id = f"folder-{uuid.uuid4().hex[:8]}"
+    new_id = req.id or f"folder-{uuid.uuid4().hex[:8]}"
     return memory_manager.create_folder(new_id, req.name.strip(), req.color or "#F59E0B")
 
 
@@ -452,6 +453,29 @@ def update_folder(folder_id: str, req: UpdateFolderRequest):
 def delete_folder(folder_id: str):
     memory_manager.delete_folder(folder_id)
     return {"status": "deleted", "id": folder_id}
+
+
+@app.get("/api/folders/{folder_id}/context")
+def get_folder_context(folder_id: str, session_id: Optional[str] = None):
+    folder = memory_manager.get_folder_details(folder_id)
+    if not folder:
+        raise HTTPException(status_code=404, detail="Carpeta no encontrada")
+    siblings = memory_manager.get_sibling_sessions_context(folder_id, exclude_session_id=session_id)
+    return {
+        "folder": folder,
+        "sibling_count": len(siblings),
+        "siblings": [
+            {
+                "id": s["id"],
+                "title": s["title"],
+                "notes_count": len(s["notes"]),
+                "messages_count": s["message_count"],
+                "updated_at": s["updated_at"]
+            }
+            for s in siblings
+        ]
+    }
+
 
 
 # ── Rutas de Sesiones de Chat ─────────────────────────────────────────────────

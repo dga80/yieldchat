@@ -8,6 +8,84 @@ import ImageStudioModal from './components/ImageStudioModal'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
+const VAULT_KEY = 'yieldchat_vault_v2'
+
+function getVault() {
+  try {
+    const raw = localStorage.getItem(VAULT_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (e) {}
+  const initial = { folders: {}, sessions: {} }
+  try {
+    const oldFolders = JSON.parse(localStorage.getItem('yieldchat_cached_folders') || '[]')
+    if (Array.isArray(oldFolders)) {
+      for (const f of oldFolders) if (f?.id) initial.folders[f.id] = f
+    }
+  } catch (e) {}
+  try {
+    const oldSessions = JSON.parse(localStorage.getItem('yieldchat_cached_sessions') || '[]')
+    if (Array.isArray(oldSessions)) {
+      for (const s of oldSessions) if (s?.id) initial.sessions[s.id] = { ...s, messages: [] }
+    }
+    const oldActive = JSON.parse(localStorage.getItem('yieldchat_cached_active_session') || 'null')
+    if (oldActive?.id) {
+      initial.sessions[oldActive.id] = {
+        ...(initial.sessions[oldActive.id] || {}),
+        ...oldActive
+      }
+    }
+  } catch (e) {}
+  return initial
+}
+
+function saveSessionToVault(session) {
+  if (!session?.id) return
+  try {
+    const vault = getVault()
+    const existing = vault.sessions[session.id] || {}
+    vault.sessions[session.id] = {
+      ...existing,
+      ...session,
+      messages: (session.messages && session.messages.length > 0) ? session.messages : (existing.messages || []),
+      notes: (session.notes && session.notes.length > 0) ? session.notes : (existing.notes || []),
+      updated_at: session.updated_at || new Date().toISOString()
+    }
+    localStorage.setItem(VAULT_KEY, JSON.stringify(vault))
+  } catch (e) {
+    console.warn('Error saving session to vault', e)
+  }
+}
+
+function saveFolderToVault(folder) {
+  if (!folder?.id) return
+  try {
+    const vault = getVault()
+    vault.folders[folder.id] = {
+      ...(vault.folders[folder.id] || {}),
+      ...folder
+    }
+    localStorage.setItem(VAULT_KEY, JSON.stringify(vault))
+  } catch (e) {
+    console.warn('Error saving folder to vault', e)
+  }
+}
+
+function removeSessionFromVault(sessionId) {
+  try {
+    const vault = getVault()
+    delete vault.sessions[sessionId]
+    localStorage.setItem(VAULT_KEY, JSON.stringify(vault))
+  } catch (e) {}
+}
+
+function removeFolderFromVault(folderId) {
+  try {
+    const vault = getVault()
+    delete vault.folders[folderId]
+    localStorage.setItem(VAULT_KEY, JSON.stringify(vault))
+  } catch (e) {}
+}
+
 export default function App() {
   // Inicializar sesiones y conversación desde localStorage para carga inmediata en móvil (0 ms)
   const [sessions, setSessions] = useState(() => {
@@ -179,10 +257,37 @@ export default function App() {
   const fetchFolders = async () => {
     try {
       const res = await fetch(`${API_BASE}/folders`)
-      const data = await res.json()
-      setFolders(data)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      let serverFolders = await res.json()
+
+      // Auto-heal: verificar si hay carpetas locales en el vault que falten en el servidor
+      const vault = getVault()
+      let restoredFolder = false
+      if (vault.folders) {
+        for (const [fId, f] of Object.entries(vault.folders)) {
+          if (!serverFolders.some(sf => sf.id === fId)) {
+            console.log('[Vault] Restaurando carpeta en servidor:', f.name)
+            try {
+              await fetch(`${API_BASE}/folders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: fId, name: f.name, color: f.color })
+              })
+              restoredFolder = true
+            } catch (err) {}
+          }
+        }
+      }
+
+      if (restoredFolder) {
+        const refresh = await fetch(`${API_BASE}/folders`)
+        if (refresh.ok) serverFolders = await refresh.json()
+      }
+
+      for (const f of serverFolders) saveFolderToVault(f)
+      setFolders(serverFolders)
       try {
-        localStorage.setItem('yieldchat_cached_folders', JSON.stringify(data))
+        localStorage.setItem('yieldchat_cached_folders', JSON.stringify(serverFolders))
       } catch (e) {}
     } catch (e) {
       console.error('Error fetching folders:', e)
@@ -198,11 +303,16 @@ export default function App() {
       if (data && data.messages) {
         setMessages(prev => {
           if (data.messages.length > prev.length) {
+            saveSessionToVault(data)
             return data.messages
           }
           return prev
         })
-        setActiveSession(prev => prev ? { ...prev, title: data.title || prev.title } : data)
+        setActiveSession(prev => {
+          const updated = prev ? { ...prev, title: data.title || prev.title } : data
+          saveSessionToVault(updated)
+          return updated
+        })
         try {
           localStorage.setItem('yieldchat_cached_active_session', JSON.stringify(data))
         } catch (e) {}
@@ -214,30 +324,68 @@ export default function App() {
 
   const autoHealMissingSession = async (serverSessions) => {
     try {
+      const vault = getVault()
+      let restoredCount = 0
+
+      // 1. Comprobar yieldchat_cached_active_session
       const cachedActiveRaw = localStorage.getItem('yieldchat_cached_active_session')
       if (cachedActiveRaw) {
-        const cachedActive = JSON.parse(cachedActiveRaw)
-        if (cachedActive?.id && cachedActive.messages?.length > 0 && !serverSessions.some(s => s.id === cachedActive.id)) {
-          console.log('[AutoHeal] Resucitando sesión perdida en el servidor:', cachedActive.id)
-          await fetch(`${API_BASE}/sessions/restore`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: cachedActive.id,
-              title: cachedActive.title || 'Conversación Recuperada',
-              folder_id: cachedActive.folder_id,
-              created_at: cachedActive.created_at,
-              updated_at: cachedActive.updated_at,
-              messages: cachedActive.messages
-            })
-          })
-          fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
-          const refreshRes = await fetch(`${API_BASE}/sessions`)
-          if (refreshRes.ok) {
-            const updated = await refreshRes.json()
-            setSessions(updated)
-            return updated
+        try {
+          const cachedActive = JSON.parse(cachedActiveRaw)
+          if (cachedActive?.id && cachedActive.messages?.length > 0 && !serverSessions.some(s => s.id === cachedActive.id)) {
+            saveSessionToVault(cachedActive)
           }
+        } catch (e) {}
+      }
+
+      // 2. Comprobar todas las sesiones en el Vault
+      if (vault.sessions) {
+        for (const [sId, sData] of Object.entries(vault.sessions)) {
+          const onServer = serverSessions.some(s => s.id === sId)
+          if (!onServer && sData?.messages && sData.messages.length > 0) {
+            console.log('[AutoHeal] Resucitando sesión perdida en el servidor:', sId, sData.title)
+            try {
+              await fetch(`${API_BASE}/sessions/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: sId,
+                  title: sData.title || 'Conversación Recuperada',
+                  folder_id: sData.folder_id || null,
+                  created_at: sData.created_at,
+                  updated_at: sData.updated_at,
+                  messages: sData.messages
+                })
+              })
+              if (sData.notes && sData.notes.length > 0) {
+                for (const note of sData.notes) {
+                  await fetch(`${API_BASE}/sessions/${sId}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      title: note.title,
+                      category: note.category,
+                      content: note.content
+                    })
+                  }).catch(() => {})
+                }
+              }
+              restoredCount++
+            } catch (err) {
+              console.warn('[AutoHeal] Error restaurando sesión:', err)
+            }
+          }
+        }
+      }
+
+      if (restoredCount > 0) {
+        fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
+        const refreshRes = await fetch(`${API_BASE}/sessions`)
+        if (refreshRes.ok) {
+          const updated = await refreshRes.json()
+          for (const s of updated) saveSessionToVault(s)
+          setSessions(updated)
+          return updated
         }
       }
     } catch (err) {
@@ -252,6 +400,7 @@ export default function App() {
       if (!res.ok) return
       let data = await res.json()
       data = await autoHealMissingSession(data)
+      for (const s of data) saveSessionToVault(s)
       setSessions(data)
       try {
         localStorage.setItem('yieldchat_cached_sessions', JSON.stringify(data))
@@ -273,6 +422,7 @@ export default function App() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       let data = await res.json()
       data = await autoHealMissingSession(data)
+      for (const s of data) saveSessionToVault(s)
       setSessions(data)
       setIsLoadingSessions(false)
       setSessionsError(false)
@@ -295,7 +445,7 @@ export default function App() {
     } catch (e) {
       console.error('Error loading sessions:', e)
       // Si el servidor de Render está despertando del modo reposo, reintentar automáticamente
-      if (retryCount < 4) {
+      if (retryCount < 10) {
         setTimeout(() => loadSessions(retryCount + 1), 3500)
       } else {
         setIsLoadingSessions(false)
@@ -327,6 +477,7 @@ export default function App() {
       setActiveSession(data)
       setMessages(data.messages || [])
       setIsLoadingMessages(false)
+      saveSessionToVault(data)
       try {
         localStorage.setItem('yieldchat_cached_active_session', JSON.stringify(data))
       } catch (e) {}
@@ -361,6 +512,7 @@ export default function App() {
   const handleDeleteSession = async (sessionId) => {
     try {
       await fetch(`${API_BASE}/sessions/${sessionId}`, { method: 'DELETE' })
+      removeSessionFromVault(sessionId)
       const updated = sessions.filter(s => s.id !== sessionId)
       setSessions(updated)
       fetchFolders() // actualizar conteos de carpetas
@@ -385,6 +537,7 @@ export default function App() {
         body: JSON.stringify({ name, color })
       })
       const newFolder = await res.json()
+      saveFolderToVault(newFolder)
       setFolders(prev => [...prev, newFolder])
       toast.success(`Carpeta "${name}" creada`)
       return newFolder
@@ -401,6 +554,7 @@ export default function App() {
         body: JSON.stringify({ name, color })
       })
       const updated = await res.json()
+      saveFolderToVault(updated)
       setFolders(prev => prev.map(f => f.id === folderId ? { ...f, ...updated } : f))
       setSessions(prev => prev.map(s => s.folder_id === folderId ? {
         ...s,
@@ -416,6 +570,7 @@ export default function App() {
   const handleDeleteFolder = async (folderId) => {
     try {
       await fetch(`${API_BASE}/folders/${folderId}`, { method: 'DELETE' })
+      removeFolderFromVault(folderId)
       setFolders(prev => prev.filter(f => f.id !== folderId))
       setSessions(prev => prev.map(s => s.folder_id === folderId ? {
         ...s,
@@ -694,7 +849,13 @@ export default function App() {
 
     const nowIso = new Date().toISOString()
     const userMsg = { role: 'user', content: displayText, created_at: nowIso }
-    setMessages(prev => [...prev, userMsg])
+    setMessages(prev => {
+      const next = [...prev, userMsg]
+      if (activeSessionId) {
+        saveSessionToVault({ ...(activeSession || {}), id: activeSessionId, messages: next })
+      }
+      return next
+    })
     setSessions(prev => {
       const current = prev.find(s => s.id === activeSessionId)
       if (!current) return prev
@@ -792,10 +953,14 @@ export default function App() {
 
       // Finalize message in state
       if (fullAssistantContent) {
-        setMessages(prev => [
-          ...prev,
-          { role: 'assistant', content: fullAssistantContent, created_at: new Date().toISOString() }
-        ])
+        const assistantMsg = { role: 'assistant', content: fullAssistantContent, created_at: new Date().toISOString() }
+        setMessages(prev => {
+          const next = [...prev, assistantMsg]
+          if (activeSessionId) {
+            saveSessionToVault({ ...(activeSession || {}), id: activeSessionId, messages: next })
+          }
+          return next
+        })
         setStreamingMessage('')
       }
       fetchMemory() // refresh memory in case the agent stored a new insight

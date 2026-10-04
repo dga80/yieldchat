@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw, ChevronDown, StickyNote } from 'lucide-react'
+import { Send, Sparkles, Activity, Bot, ImagePlus, X, Paperclip, Square, FileText, FileCode, UploadCloud, Menu, PanelLeft, Plus, SquarePen, RefreshCw, ChevronDown, StickyNote, Folder } from 'lucide-react'
 import MessageItem from './MessageItem'
 import ConnectionBadge from './ConnectionBadge'
 
@@ -177,6 +177,29 @@ export default function ChatArea({
               )}
             </>
           )}
+          {session?.folder_name && (
+            <span
+              className="chat-header-folder-tag"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: `${session.folder_color || '#F59E0B'}18`,
+                border: `1px solid ${session.folder_color || '#F59E0B'}44`,
+                color: session.folder_color || '#F59E0B',
+                fontWeight: 500,
+                marginLeft: '8px',
+                cursor: 'default'
+              }}
+              title={`Carpeta: ${session.folder_name} (Contexto compartido activo entre conversaciones)`}
+            >
+              <Folder size={11} />
+              <span>{session.folder_name}</span>
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -226,9 +249,29 @@ export default function ChatArea({
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', boxShadow: '0 0 16px var(--gold-glow)' }}>
               <Bot size={26} />
             </div>
+            {session?.folder_name && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: `${session.folder_color || '#F59E0B'}15`,
+                border: `1px solid ${session.folder_color || '#F59E0B'}44`,
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontSize: '12px',
+                color: session.folder_color || '#F59E0B',
+                marginBottom: '14px',
+                fontWeight: 500
+              }}>
+                <Folder size={13} />
+                <span>Carpeta: <strong>{session.folder_name}</strong> • Contexto compartido activo</span>
+              </div>
+            )}
             <h2 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: 8, fontWeight: 700 }}>¿En qué canal o estrategia trabajamos hoy?</h2>
             <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--text-muted)' }}>
-              Puedo auditar canales, generar miniaturas en alta definición con IA, aprender estilos visuales de tus imágenes de referencia y redactar guiones optimizados.
+              {session?.folder_name
+                ? `Esta conversación tiene acceso directo al contexto, notas y análisis de las demás conversaciones de la carpeta "${session.folder_name}".`
+                : 'Puedo auditar canales, generar miniaturas en alta definición con IA, aprender estilos visuales de tus imágenes de referencia y redactar guiones optimizados.'}
             </p>
           </div>
         ) : (

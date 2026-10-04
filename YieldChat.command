@@ -9,14 +9,14 @@ echo "======================================================"
 echo "       YieldChat — Asistente Estratégico YouTube      "
 echo "======================================================"
 echo ""
-echo "  [1] Abrir YieldChat en la Nube (Compartido con Móvil) [Por defecto en 4s]"
-echo "  [2] Iniciar Servidor Local en este Mac (Offline)"
+echo "  [1] Iniciar Servidor Local en este Mac (Offline / Seguro / Permanente) [Por defecto en 2s]"
+echo "  [2] Abrir Versión en la Nube (Compartido con Móvil)"
 echo ""
-read -t 4 -p "Selecciona una opción [1]: " OPTION || OPTION="1"
+read -t 2 -p "Selecciona una opción [1]: " OPTION || OPTION="1"
 [ -z "$OPTION" ] && OPTION="1"
 echo ""
 
-if [ "$OPTION" = "2" ]; then
+if [ "$OPTION" = "1" ]; then
     echo "[1/2] Iniciando Backend local en puerto 8001..."
     cd "$DIR/backend"
     "$DIR/backend/.venv/bin/uvicorn" main:app --host 127.0.0.1 --port 8001 --reload &
@@ -31,6 +31,7 @@ if [ "$OPTION" = "2" ]; then
     open "http://localhost:5174"
     echo ""
     echo "-> YieldChat Local activo en: http://localhost:5174"
+    echo "-> Todas las conversaciones se guardan directamente en este Mac (chat_history.db y conversations/)."
     echo "-> Presiona Ctrl+C para detener la aplicación."
     trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM EXIT
     wait

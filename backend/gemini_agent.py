@@ -125,6 +125,20 @@ def herramienta_generar_imagen(prompt: str, aspect_ratio: str = "16:9", estilo: 
     return res
 
 
+def herramienta_consultar_conversacion_carpeta(identificador_o_titulo: str) -> dict:
+    """Consulta y lee el contenido íntegro y detallado (todos los mensajes y notas) de otra conversación de la misma carpeta actual. Pasa el ID de la conversación (ej: chat-12345) o palabras de su título."""
+    s_id = _current_session_id.get()
+    if not s_id:
+        return {"status": "error", "message": "No hay sesión activa"}
+
+    session_data = memory_manager.get_session(s_id)
+    if not session_data or not session_data.get("folder_id"):
+        return {"status": "error", "message": "La conversación actual no pertenece a ninguna carpeta temática."}
+
+    folder_id = session_data["folder_id"]
+    return memory_manager.get_full_session_in_folder(folder_id, identificador_o_titulo)
+
+
 AVAILABLE_TOOLS = [
     herramienta_analizar_canal,
     herramienta_analizar_videos_velocidad,
@@ -135,7 +149,8 @@ AVAILABLE_TOOLS = [
     herramienta_diseccionar_hook_30s,
     herramienta_niche_bending_generator,
     herramienta_crear_nota_sesion,
-    herramienta_generar_imagen
+    herramienta_generar_imagen,
+    herramienta_consultar_conversacion_carpeta
 ]
 
 
@@ -250,9 +265,12 @@ def detect_multi_part_request(user_message: str, history_messages: Optional[List
     return None
 
 
-def build_system_instruction() -> str:
+def build_system_instruction(folder_id: Optional[str] = None, current_session_id: Optional[str] = None) -> str:
     learned_memory = memory_manager.format_memory_for_system_prompt()
-    
+    folder_context = ""
+    if folder_id and current_session_id:
+        folder_context = memory_manager.format_folder_context_for_prompt(folder_id, current_session_id)
+
     return f"""Eres YieldChat, un Consultor y Estratega de Élite en Crecimiento de Canales de YouTube Faceless (Automatización de YouTube).
 Tu objetivo es ayudar al usuario a descubrir nichos de océano azul, auditar canales competidores con métricas reales, analizar outliers por velocidad de vistas/día, diseñar guiones de alta retención, sugerir configuraciones de voz (TTS/ElevenLabs/Qwen), analizar imágenes de referencia con visión artificial y redactar prompts profesionales de imágenes y miniaturas de máxima conversión (para Midjourney v6, Flux y Nano Banana).
 
@@ -266,6 +284,7 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube y de ge
 7. `herramienta_diseccionar_hook_30s`: Para analizar la retención y estructura de los primeros 30 segundos de un guion.
 8. `herramienta_niche_bending_generator`: Para generar conceptos de Niche Bending cruzando formatos probados con categorías de alto RPM.
 9. `herramienta_crear_nota_sesion`: Para crear y archivar notas en la columna lateral de la conversación. SI EL USUARIO PIDE 'crea una nota sobre...', 'guarda esto en una nota' o pide archivar una síntesis, LLAMA SIEMPRE a esta herramienta con un título claro, el contenido estructurado en Markdown y su categoría ('Estrategia', 'Packaging', 'Guion', 'Outliers', etc.).
+10. `herramienta_consultar_conversacion_carpeta`: Para leer el contenido íntegro y exhaustivo (todos los mensajes y notas) de otra conversación de la misma carpeta actual si necesitas consultar a fondo un guion largo o detalles específicos.
 
 ### REGLAS DE RESPUESTA:
 - Sé directo, analítico, estructurado y sin rodeos innecesarios.
@@ -292,6 +311,7 @@ Tienes acceso directo a herramientas en tiempo real de la API de YouTube y de ge
   * En modo de generación de guion o bucle, redacta directamente la narración sin saludos iniciales ni preguntas de cierre como "¿Quieres que continúe?".
 
 {learned_memory}
+{folder_context}
 """
 
 
@@ -436,9 +456,11 @@ async def stream_agent_chat(
     # Formatear y sanitizar historial previo para google-genai
     formatted_history = _sanitize_history_for_genai(history_messages)
 
-    # Configuración de generación optimizada con 8192 max tokens
+    folder_id = session_data.get("folder_id") if session_data else None
+
+    # Configuración de generación optimizada con 8192 max tokens y contexto de carpeta
     config = types.GenerateContentConfig(
-        system_instruction=build_system_instruction(),
+        system_instruction=build_system_instruction(folder_id=folder_id, current_session_id=session_id),
         tools=AVAILABLE_TOOLS,
         max_output_tokens=8192,
         temperature=0.7

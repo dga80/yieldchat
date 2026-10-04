@@ -1,0 +1,22 @@
+{
+  "id": "chat-d9c408f7bf",
+  "title": "necesito crear la miniatura de e",
+  "created_at": "2026-09-12T09:28:33.525839+00:00",
+  "updated_at": "2026-09-12T09:30:01.977862+00:00",
+  "folder_id": null,
+  "messages": [
+    {
+      "role": "user",
+      "content": "📄 **Archivo adjunto:** `guion-mottainai_completo.txt` *(20.6 KB)*\n\nnecesito crear la miniatura de este guión para youtube, dame un prompt parecido al que te pego pero adaptado al guión mottainai que te adjunto:\nA nostalgic Seinen anime illustration in the style of Studio Ghibli and Makoto Shinkai, featuring a humble Japanese man sitting quietly in a modest traditional room with tatami mats, writing carefully in a small notebook (kakeibo ledger) next to a warm cup of tea. Soft golden sunset light streaming through a paper shoji screen window, cinematic zen atmospheric dust particles, warm muted earthy tones, fine delicate line art, peaceful introspective mood, quiet wealth lifestyle. The character is positioned strictly on the right side of the frame, leaving clean, darker empty negative space on the left side for bold text placement, cinematic composition, 8k resolution --ar 16:9 --v 6.1 --style raw",
+      "tool_calls": null,
+      "created_at": "2026-09-12T09:29:42.576871+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "### Composición Estratégica de la Miniatura (CTR & Smart TV)\n\n* **Elemento Principal (Derecha):** Una mujer japonesa humilde de mediana edad (Ko, vestimenta rústica tradicional y sencilla), sentada pacíficamente en una mesa de madera desgastada, sosteniendo con ambas manos y respeto una moneda de latón frente a un modesto frasco de cerámica artesanal. Expresión serena, mirada atenta y sabia.\n* **Fondo y Atmósfera:** Interior de una cocina/habitación rústica tradicional japonesa. Luz dorada y cálida de atardecer entrando en ángulo lateral, resaltando partículas zen de polvo en suspensión. Fondos en penumbra controlada en la zona izquierda.\n* **Espacio Negativo (Izquierda):** Zona oscura, limpia y sin elementos distractores para garantizar legibilidad a 3 metros en Smart TV y pantallas móviles reducidas.\n* **Paleta de Colores:** Tonos tierra cálidos (madera oscura, beige tatami, ocre) combinados con sombras profundas para contraste máximo.\n* **Propuesta de Texto (2 Líneas - Alto Impacto):**\n  * **Línea 1 (Blanco puro):** GANA POCO,\n  * **Línea 2 (Amarillo #FFD700):** AHORRA TODO\n\n---\n\n### Prompt para Generación (Midjourney v6.1 / Flux / Nano Banana)\n\n```text\nA nostalgic Seinen anime illustration in the signature style of Studio Ghibli and Makoto Shinkai, featuring a humble, middle-aged Japanese woman (Ko) sitting quietly at a rustic dark wooden table, holding a small brass coin with two hands in deep reverence, next to an authentic handcrafted Japanese ceramic jar. Soft dramatic golden sunset light streaming from a side paper shoji window, cinematic zen floating dust particles, warm muted earthy color palette, fine delicate line art, peaceful introspective mood, quiet wealth and mottainai philosophy. The woman and ceramic jar are strictly positioned on the right third of the frame, leaving clean, deep shadow negative space on the left side for bold thumbnail typography, masterclass cinematic composition, 8k resolution --ar 16:9 --v 6.1 --style raw\n```",
+      "tool_calls": null,
+      "created_at": "2026-09-12T09:30:01.977862+00:00"
+    }
+  ],
+  "notes": []
+}

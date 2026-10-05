@@ -206,15 +206,49 @@ def perform_git_sync(commit_msg: str = "auto-sync: actualizar memoria a largo pl
         raise e
 
 
+_sync_task: Optional[asyncio.Task] = None
+
+
+def trigger_background_sync(delay_seconds: float = 2.0, commit_msg: str = "auto-sync: actualización de datos e historial"):
+    """Dispara una sincronización en segundo plano con debounce para asegurar persistencia inmediata sin saturar Git."""
+    global _sync_task
+
+    async def _runner():
+        try:
+            await asyncio.sleep(delay_seconds)
+            if not sync_state["is_syncing"]:
+                sync_state["is_syncing"] = True
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, perform_git_sync, commit_msg)
+        except asyncio.CancelledError:
+            pass
+        except Exception as ex:
+            print(f"[TriggerSync] Error en sincronización diferida: {ex}")
+        finally:
+            sync_state["is_syncing"] = False
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            if _sync_task and not _sync_task.done():
+                _sync_task.cancel()
+            _sync_task = loop.create_task(_runner())
+    except Exception as e:
+        print(f"[TriggerSync] No se pudo crear tarea diferida: {e}")
+
+
 async def background_auto_sync_worker():
     """Bucle autónomo que sincroniza cada X minutos si hay cambios pendientes."""
     print(f"[AutoSync] Bucle autónomo iniciado (cada {AUTO_SYNC_INTERVAL_MINUTES} minutos).")
+    files_to_check = ["backend/learned_insights.json", "backend/chat_history.db"]
+    if os.path.exists(os.path.join(REPO_DIR, "conversations")):
+        files_to_check.append("conversations")
     while True:
         await asyncio.sleep(AUTO_SYNC_INTERVAL_MINUTES * 60)
         try:
             # Comprobar si hay cambios pendientes antes de ejecutar
             status_res = subprocess.run(
-                ["git", "status", "--porcelain", "backend/learned_insights.json", "backend/chat_history.db"],
+                ["git", "status", "--porcelain"] + files_to_check,
                 cwd=REPO_DIR,
                 capture_output=True,
                 text=True
@@ -229,12 +263,14 @@ async def background_auto_sync_worker():
             if status_res.stdout.strip() or has_unpushed:
                 print("[AutoSync] Detectados cambios en la memoria. Sincronizando con GitHub de forma autónoma...")
                 sync_state["is_syncing"] = True
-                res = perform_git_sync("auto-sync: actualización autónoma de memoria e historial")
+                loop = asyncio.get_running_loop()
+                res = await loop.run_in_executor(None, perform_git_sync, "auto-sync: actualización autónoma de memoria e historial")
                 print(f"[AutoSync] Resultado: {res.get('message')}")
         except Exception as e:
             print(f"[AutoSync] Error en sincronización autónoma: {e}")
         finally:
             sync_state["is_syncing"] = False
+
 
 
 # Inicializar Base de Datos y Tarea de Fondo al arrancar
@@ -438,7 +474,9 @@ def list_folders():
 @app.post("/api/folders")
 def create_folder(req: CreateFolderRequest):
     new_id = req.id or f"folder-{uuid.uuid4().hex[:8]}"
-    return memory_manager.create_folder(new_id, req.name.strip(), req.color or "#F59E0B")
+    res = memory_manager.create_folder(new_id, req.name.strip(), req.color or "#F59E0B")
+    trigger_background_sync(2.0, f"auto-sync: nueva carpeta '{req.name.strip()}'")
+    return res
 
 
 @app.patch("/api/folders/{folder_id}")
@@ -446,12 +484,14 @@ def update_folder(folder_id: str, req: UpdateFolderRequest):
     updated = memory_manager.update_folder(folder_id, req.name.strip() if req.name else None, req.color)
     if not updated:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada")
+    trigger_background_sync(2.0, "auto-sync: carpeta actualizada")
     return updated
 
 
 @app.delete("/api/folders/{folder_id}")
 def delete_folder(folder_id: str):
     memory_manager.delete_folder(folder_id)
+    trigger_background_sync(2.0, "auto-sync: carpeta eliminada")
     return {"status": "deleted", "id": folder_id}
 
 
@@ -488,12 +528,14 @@ def list_sessions():
 @app.post("/api/sessions")
 def create_session(req: CreateSessionRequest):
     new_id = f"chat-{uuid.uuid4().hex[:10]}"
-    return memory_manager.create_session(new_id, req.title or "Nueva Conversación", req.folder_id)
+    res = memory_manager.create_session(new_id, req.title or "Nueva Conversación", req.folder_id)
+    trigger_background_sync(3.0, "auto-sync: nueva sesión iniciada")
+    return res
 
 
 @app.post("/api/sessions/restore")
 def api_restore_session(req: RestoreSessionRequest):
-    return memory_manager.restore_session(
+    res = memory_manager.restore_session(
         session_id=req.id,
         title=req.title,
         folder_id=req.folder_id,
@@ -501,6 +543,8 @@ def api_restore_session(req: RestoreSessionRequest):
         updated_at=req.updated_at,
         messages=req.messages
     )
+    trigger_background_sync(3.0, f"auto-sync: sesión restaurada '{req.title[:25]}'")
+    return res
 
 
 @app.get("/api/sessions/{session_id}")
@@ -514,6 +558,7 @@ def get_session(session_id: str):
 @app.patch("/api/sessions/{session_id}")
 def update_session(session_id: str, req: UpdateSessionRequest):
     memory_manager.update_session_title(session_id, req.title)
+    trigger_background_sync(2.0, "auto-sync: título de sesión actualizado")
     return {"status": "updated", "id": session_id, "title": req.title}
 
 
@@ -523,13 +568,16 @@ def set_session_folder(session_id: str, req: SetSessionFolderRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Conversación no encontrada")
     memory_manager.assign_session_folder(session_id, req.folder_id)
+    trigger_background_sync(2.0, "auto-sync: sesión movida de carpeta")
     return {"status": "updated", "id": session_id, "folder_id": req.folder_id}
 
 
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: str):
     memory_manager.delete_session(session_id)
+    trigger_background_sync(2.0, "auto-sync: sesión eliminada")
     return {"status": "deleted", "id": session_id}
+
 
 
 # ── Rutas de Notas de Conversación ────────────────────────────────────────────
@@ -542,6 +590,7 @@ def get_session_notes(session_id: str):
 @app.post("/api/sessions/{session_id}/notes")
 def create_session_note(session_id: str, req: CreateNoteRequest):
     note = memory_manager.create_note(session_id, req.title, req.content, req.category or "Estrategia")
+    trigger_background_sync(2.0, "auto-sync: nota guardada")
     return note
 
 
@@ -550,6 +599,7 @@ def update_note(note_id: str, req: UpdateNoteRequest):
     updated = memory_manager.update_note(note_id, req.title, req.content, req.category)
     if not updated:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
+    trigger_background_sync(2.0, "auto-sync: nota actualizada")
     return updated
 
 
@@ -558,6 +608,7 @@ def delete_note(note_id: str):
     deleted = memory_manager.delete_note(note_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
+    trigger_background_sync(2.0, "auto-sync: nota eliminada")
     return {"status": "deleted", "id": note_id}
 
 
@@ -585,6 +636,8 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                     print(f"[Chat] Cliente canceló o se desconectó de la sesión {req.session_id}")
                     break
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            # Sincronización automática de persistencia al terminar la respuesta con éxito
+            trigger_background_sync(2.0, "auto-sync: nuevo mensaje e historial")
         except asyncio.CancelledError:
             print(f"[Chat] Tarea cancelada por el cliente para la sesión {req.session_id}")
         except Exception as e:
@@ -607,7 +660,69 @@ def get_memory():
 
 @app.post("/api/memory")
 def add_memory(req: InsightRequest):
-    return memory_manager.add_insight(req.categoria, req.regla)
+    res = memory_manager.add_insight(req.categoria, req.regla)
+    trigger_background_sync(2.0, "auto-sync: nuevo aprendizaje en memoria")
+    return res
+
+
+# ── Rutas de Bóveda y Copia de Seguridad ──────────────────────────────────────
+
+@app.get("/api/vault/export")
+def export_vault():
+    """Devuelve un volcado completo de todas las carpetas, sesiones, mensajes y notas."""
+    folders = memory_manager.list_folders()
+    sessions = memory_manager.list_sessions()
+    full_sessions = []
+    for s in sessions:
+        full = memory_manager.get_session(s["id"])
+        if full:
+            full["notes"] = memory_manager.list_notes(s["id"])
+            full_sessions.append(full)
+    return {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "folders": folders,
+        "sessions": full_sessions,
+        "insights": memory_manager.get_all_insights()
+    }
+
+
+class ImportVaultRequest(BaseModel):
+    folders: Optional[List[Dict[str, Any]]] = None
+    sessions: Optional[List[Dict[str, Any]]] = None
+
+
+@app.post("/api/vault/import")
+def import_vault(req: ImportVaultRequest):
+    """Restaura masivamente carpetas y conversaciones."""
+    restored_folders = 0
+    restored_sessions = 0
+    if req.folders:
+        for f in req.folders:
+            if f.get("id") and f.get("name"):
+                memory_manager.create_folder(f["id"], f["name"], f.get("color", "#F59E0B"))
+                restored_folders += 1
+    if req.sessions:
+        for s in req.sessions:
+            if s.get("id"):
+                memory_manager.restore_session(
+                    session_id=s["id"],
+                    title=s.get("title", "Conversación"),
+                    folder_id=s.get("folder_id"),
+                    created_at=s.get("created_at"),
+                    updated_at=s.get("updated_at"),
+                    messages=s.get("messages", [])
+                )
+                if s.get("notes"):
+                    for n in s["notes"]:
+                        memory_manager.create_note(
+                            session_id=s["id"],
+                            title=n.get("title", ""),
+                            content=n.get("content", ""),
+                            category=n.get("category", "Estrategia")
+                        )
+                restored_sessions += 1
+    trigger_background_sync(2.0, f"auto-sync: importación de {restored_sessions} chats y {restored_folders} carpetas")
+    return {"status": "ok", "restored_folders": restored_folders, "restored_sessions": restored_sessions}
 
 
 # ── Rutas de Sincronización con GitHub ─────────────────────────────────────────
@@ -615,8 +730,11 @@ def add_memory(req: InsightRequest):
 @app.get("/api/sync/status")
 def get_sync_status():
     # Comprobar cambios pendientes locales o commits sin pushear
+    files_to_check = ["backend/learned_insights.json", "backend/chat_history.db"]
+    if os.path.exists(os.path.join(REPO_DIR, "conversations")):
+        files_to_check.append("conversations")
     status_res = subprocess.run(
-        ["git", "status", "--porcelain", "backend/learned_insights.json", "backend/chat_history.db"],
+        ["git", "status", "--porcelain"] + files_to_check,
         cwd=REPO_DIR,
         capture_output=True,
         text=True

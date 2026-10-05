@@ -504,6 +504,7 @@ export default function App() {
       setSessions(prev => [newSession, ...prev])
       selectSession(newSession.id)
       if (folderId) fetchFolders()
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
     } catch (e) {
       toast.error('Error al crear nueva conversación')
     }
@@ -523,6 +524,7 @@ export default function App() {
           handleNewChat()
         }
       }
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
       toast.success('Conversación eliminada')
     } catch (e) {
       toast.error('Error al eliminar conversación')
@@ -539,6 +541,7 @@ export default function App() {
       const newFolder = await res.json()
       saveFolderToVault(newFolder)
       setFolders(prev => [...prev, newFolder])
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
       toast.success(`Carpeta "${name}" creada`)
       return newFolder
     } catch (e) {
@@ -561,6 +564,7 @@ export default function App() {
         folder_name: updated.name,
         folder_color: updated.color
       } : s))
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
       toast.success('Carpeta actualizada')
     } catch (e) {
       toast.error('Error al actualizar carpeta')
@@ -578,6 +582,7 @@ export default function App() {
         folder_name: null,
         folder_color: null
       } : s))
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
       toast.success('Carpeta eliminada (conversaciones conservadas)')
     } catch (e) {
       toast.error('Error al eliminar carpeta')
@@ -607,9 +612,117 @@ export default function App() {
         }))
       }
       fetchFolders()
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
       toast.success(folderId ? `Movido a "${targetFolder?.name || 'Carpeta'}"` : 'Movido a Sin clasificar')
     } catch (e) {
       toast.error('Error al mover conversación')
+    }
+  }
+
+  const handleExportBackup = async () => {
+    const toastId = toast.loading('Generando copia de seguridad...')
+    try {
+      let exportData = null
+      try {
+        const res = await fetch(`${API_BASE}/vault/export`)
+        if (res.ok) {
+          exportData = await res.json()
+        }
+      } catch (e) {
+        console.warn('Backend export failed, falling back to local vault', e)
+      }
+
+      // Mezclar con el vault local de localStorage para asegurar integridad absoluta
+      const localVault = getVault()
+      if (!exportData) {
+        exportData = {
+          exported_at: new Date().toISOString(),
+          folders: Object.values(localVault.folders || {}),
+          sessions: Object.values(localVault.sessions || {}),
+          insights: insights || []
+        }
+      } else {
+        const serverSessionIds = new Set((exportData.sessions || []).map(s => s.id))
+        if (localVault.sessions) {
+          for (const [id, s] of Object.entries(localVault.sessions)) {
+            if (!serverSessionIds.has(id) && s.messages?.length > 0) {
+              exportData.sessions.push(s)
+            }
+          }
+        }
+        const serverFolderIds = new Set((exportData.folders || []).map(f => f.id))
+        if (localVault.folders) {
+          for (const [id, f] of Object.entries(localVault.folders)) {
+            if (!serverFolderIds.has(id)) {
+              exportData.folders.push(f)
+            }
+          }
+        }
+      }
+
+      const jsonStr = JSON.stringify(exportData, null, 2)
+      const blob = new Blob([jsonStr], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const dateStr = new Date().toISOString().split('T')[0]
+      a.href = url
+      a.download = `yieldchat_boveda_${dateStr}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success(`Copia descargada (${exportData.sessions?.length || 0} chats)`, { id: toastId })
+    } catch (err) {
+      console.error('Error al exportar copia:', err)
+      toast.error('Error al generar la copia de seguridad', { id: toastId })
+    }
+  }
+
+  const handleImportBackup = async (file) => {
+    if (!file) return
+    const toastId = toast.loading('Restaurando copia de seguridad...')
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      if (!data || (!data.sessions && !data.folders)) {
+        throw new Error('Archivo de copia no válido')
+      }
+
+      // Guardar en el vault local de inmediato
+      if (Array.isArray(data.folders)) {
+        for (const f of data.folders) saveFolderToVault(f)
+      }
+      if (Array.isArray(data.sessions)) {
+        for (const s of data.sessions) saveSessionToVault(s)
+      }
+
+      // Enviar al servidor para persistencia en base de datos SQLite y GitHub
+      let serverRestored = 0
+      try {
+        const res = await fetch(`${API_BASE}/vault/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folders: data.folders || [],
+            sessions: data.sessions || []
+          })
+        })
+        if (res.ok) {
+          const resData = await res.json()
+          serverRestored = resData.restored_sessions || 0
+        }
+      } catch (e) {
+        console.warn('Backend vault import request failed', e)
+      }
+
+      await fetchFolders()
+      await refreshSessionsList()
+      fetch(`${API_BASE}/sync/github`, { method: 'POST' }).catch(() => {})
+      toast.success(`Bóveda restaurada con éxito (${data.sessions?.length || serverRestored} chats)`, { id: toastId })
+    } catch (err) {
+      console.error('Error al importar copia:', err)
+      toast.error(err.message || 'Error al procesar el archivo', { id: toastId })
     }
   }
 
@@ -1076,6 +1189,8 @@ export default function App() {
         isLoadingSessions={isLoadingSessions}
         sessionsError={sessionsError}
         onRetryLoadSessions={() => loadSessions()}
+        onExportBackup={handleExportBackup}
+        onImportBackup={handleImportBackup}
       />
 
       <ChatArea

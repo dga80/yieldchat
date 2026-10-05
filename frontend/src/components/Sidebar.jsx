@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Plus,
   Trash2,
@@ -19,7 +19,9 @@ import {
   Search,
   Check,
   Clock,
-  Calendar
+  Calendar,
+  Download,
+  Upload
 } from 'lucide-react'
 import { groupSessionsByDate, formatSessionDate } from '../utils/dateUtils'
 
@@ -54,8 +56,11 @@ export default function Sidebar({
   onClose,
   isLoadingSessions = false,
   sessionsError = false,
-  onRetryLoadSessions
+  onRetryLoadSessions,
+  onExportBackup,
+  onImportBackup
 }) {
+  const fileInputRef = useRef(null)
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('yieldchat_sidebar_view') || 'date'
@@ -614,6 +619,40 @@ export default function Sidebar({
             <Brain size={15} style={{ color: '#38BDF8' }} />
             <span>Memoria del Agente</span>
           </button>
+
+          <div style={{ display: 'flex', gap: '6px', marginBottom: 4 }}>
+            <button
+              className="memory-btn"
+              onClick={onExportBackup}
+              title="Descargar copia de seguridad completa (.json) con todos tus chats y carpetas"
+              style={{ flex: 1, padding: '7px 8px', fontSize: '11px', justifyContent: 'center' }}
+            >
+              <Download size={13} style={{ color: '#38BDF8' }} />
+              <span>Exportar</span>
+            </button>
+            <button
+              className="memory-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Restaurar o importar chats desde un archivo .json"
+              style={{ flex: 1, padding: '7px 8px', fontSize: '11px', justifyContent: 'center' }}
+            >
+              <Upload size={13} style={{ color: 'var(--gold)' }} />
+              <span>Importar</span>
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  onImportBackup(file)
+                  e.target.value = ''
+                }
+              }}
+            />
+          </div>
 
           <button 
             className={`memory-btn sync-btn ${hasPending ? 'has-pending' : ''}`} 

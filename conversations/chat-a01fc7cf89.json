@@ -3,7 +3,7 @@
   "title": "analiza mi canal @PuntoSupuesto,",
   "folder_id": "folder-1bdeeead",
   "created_at": "2026-10-07T20:54:07.178051+00:00",
-  "updated_at": "2026-10-08T15:17:37.869919+00:00",
+  "updated_at": "2026-10-08T15:19:05.832481+00:00",
   "folder_name": "@puntoSupuesto",
   "folder_color": "#F59E0B",
   "messages": [
@@ -48,6 +48,20 @@
       "content": "Aquí tienes la **Ficha SEO completa** para optimizar el posicionamiento, el CTR en móviles y la ergonomía visual en Smart TV para el vídeo **\"¿Qué pasaría si el sol se apagara durante 7 dias?\"**:\n\n---\n\n### 1. TÍTULOS OPTIMIZADOS (Foco en CTR y Curiosidad)\n* **Opción A (Principal - Máximo CTR):** ¿Qué Pasaría si el Sol se Apagara Durante 7 Días?\n* **Opción B (Enfoque Apocalíptico):** 7 Días en la Oscuridad: ¿Qué Pasaría con la Tierra si el Sol Desapareciera?\n* **Opción C (Ultra-Curiosidad):** El Día que el Sol se Apagó: Así Moriría la Tierra en 168 Horas\n\n---\n\n### 2. DESCRIPCIÓN DEL VÍDEO\n> ¿Te has parado a pensar qué ocurriría si la fuente de toda vida en la Tierra se apagara de golpe? En este experimento mental extremo exploramos paso a paso el colapso global, la bajada drástica de temperaturas, el fin de la agricultura y la lucha desesperada de la humanidad por sobrevivir a 7 días de oscuridad perpetua.\n> \n> ⏱️ **Capítulos del vídeo:**\n> 0:00 El último rayo de luz\n> 2:00 Día 1: El pánico energético\n> 5:30 Días 2-3: El fin de la fotosíntesis y el frío extremo\n> 9:30 Días 4-5: El refugio en los océanos y búnkeres\n> 14:00 Días 6-7: El límite de la atmósfera\n> 18:00 El despertar y la segunda catástrofe\n> 20:30 Reflexión final\n> \n> Si te fascinan los escenarios hipotéticos y las catástrofes cósmicas, suscríbete y activa la campanita. Déjanos en los comentarios: ¿desde qué ciudad nos escuchas y dónde te habrías refugiado?\n> \n> #CienciaFicción #ExperimentoMental #Apocalipsis #PuntoSupuesto #Astronomía\n\n---\n\n### 3. ETIQUETAS (TAGS)\n> `que pasaria si el sol se apagara`, `el sol se apaga 7 dias`, `fin del mundo`, `catastrofe global`, `experimento mental`, `que pasaria si`, `ciencia ficcion`, `espacio exterior`, `sistema solar`, `supervivencia`, `apocalipsis terrestre`, `PuntoSupuesto`\n\n---\n\n### 4. PACKAGING Y MINIATURA (Regla de los 3 Elementos - Danilov)\n* **Elemento Principal (Derecha):** Una figura humana o ciudad congelada bajo una capa de hielo y escarcha, iluminada por una luz azulada muy tenue.\n* **Fondo (Izquierda/Centro):** El espacio exterior con un Sol completamente apagado, negro y rodeado de un halo de energía fría o auroras boreales intensas.\n* **Texto de la Miniatura (Gigante para Smart TV):**\n  * **Línea 1 (Blanco):** ¿Y SI EL SOL SE APAGA?\n  * **Línea 2 (Amarillo #FFD700):** 7 DÍAS EN EL HIELO\n* **Prompt para Generación de Miniatura (Midjourney v6.1 / Flux):**\n  ```text\n  A cinematic 16:9 thumbnail for YouTube. On the right side, a frozen Earth landscape covered in frost and deep blue shadows, with a tiny human figure looking up. On the background, the Sun is completely turned off, dark void with a faint cold blue corona. Studio Ghibli and Makoto Shinkai anime style, dramatic lighting, highly detailed, high contrast, clean text layout space on the left --ar 16:9 --v 6.1\n  ```",
       "tool_calls": null,
       "created_at": "2026-10-08T15:17:37.869919+00:00"
+    },
+    {
+      "id": 495,
+      "role": "user",
+      "content": "dame las etiquetas seguidas separadas por coma",
+      "tool_calls": null,
+      "created_at": "2026-10-08T15:18:12.442103+00:00"
+    },
+    {
+      "id": 496,
+      "role": "assistant",
+      "content": "aquí tienes las etiquetas listas para copiar y pegar directamente en YouTube Studio:\n\nque pasaria si el sol se apagara, el sol se apaga 7 dias, fin del mundo, catastrofe global, experimento mental, que pasaria si, ciencia ficcion, espacio exterior, sistema solar, supervivencia, apocalipsis terrestre, PuntoSupuesto, que pasaria si el sol se apaga, que pasaria si el sol se apagara por 7 dias, que pasaria si el sol desaparece, sol apagado, que pasaria si el sol se apaga durante una semana, que pasaria si no hubiera sol, que pasaria si el sol dejara de brillar, que pasaria si la tierra se congela, que pasaria si no hay luz solar",
+      "tool_calls": null,
+      "created_at": "2026-10-08T15:19:05.832481+00:00"
     }
   ],
   "notes": [

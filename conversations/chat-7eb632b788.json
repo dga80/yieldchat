@@ -1,11 +1,19 @@
 {
   "id": "chat-7eb632b788",
-  "title": "Nueva Conversación",
+  "title": "desarrolla la estructura de guió",
   "folder_id": "folder-1bdeeead",
   "created_at": "2026-10-08T16:02:56.014056+00:00",
-  "updated_at": "2026-10-08T16:02:56.014056+00:00",
+  "updated_at": "2026-10-08T16:03:16.032862+00:00",
   "folder_name": "@puntoSupuesto",
   "folder_color": "#F59E0B",
-  "messages": [],
+  "messages": [
+    {
+      "id": 499,
+      "role": "user",
+      "content": "![Referencia](/api/uploads/ref_c7e8bf88.jpg)\n\ndesarrolla la estructura de guión para :",
+      "tool_calls": null,
+      "created_at": "2026-10-08T16:03:16.032862+00:00"
+    }
+  ],
   "notes": []
 }

@@ -1075,6 +1075,22 @@ export default function App() {
           return next
         })
         setStreamingMessage('')
+
+        // Sincronizar mensajes oficiales del backend para reemplazar base64 por /api/uploads/ persistente
+        if (activeSessionId) {
+          try {
+            const syncRes = await fetch(`${API_BASE}/sessions/${activeSessionId}`)
+            if (syncRes.ok) {
+              const serverData = await syncRes.json()
+              if (serverData && Array.isArray(serverData.messages) && serverData.messages.length > 0) {
+                setMessages(serverData.messages)
+                saveSessionToVault(serverData)
+              }
+            }
+          } catch (e) {
+            console.warn('Error sincronizando mensajes finales de sesión:', e)
+          }
+        }
       }
       fetchMemory() // refresh memory in case the agent stored a new insight
       fetchSyncStatus() // refresh sync status

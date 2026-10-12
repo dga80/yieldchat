@@ -300,7 +300,17 @@ export default function ChatArea({
                   </div>
                   <span className="thinking-text">
                     {currentTool 
-                      ? (currentTool.startsWith('Redactando') || currentTool.includes('Parte') ? currentTool : `Ejecutando ${currentTool}...`) 
+                      ? (currentTool.startsWith('Redactando') || 
+                         currentTool.startsWith('Conectando') || 
+                         currentTool.startsWith('Pensando') || 
+                         currentTool.startsWith('Consultando') || 
+                         currentTool.startsWith('Tiempo') || 
+                         currentTool.startsWith('Reintentando') || 
+                         currentTool.startsWith('Probando') || 
+                         currentTool.includes('Parte') || 
+                         currentTool.endsWith('...')
+                          ? currentTool 
+                          : `Ejecutando ${currentTool}...`) 
                       : (streamingMessage ? 'Redactando siguiente parte en bucle autónomo...' : 'YieldChat está procesando y creando...')}
                   </span>
                 </div>

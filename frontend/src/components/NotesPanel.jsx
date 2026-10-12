@@ -469,7 +469,7 @@ export default function NotesPanel({
                       ) : (
                         <>
                           <div className="note-markdown-content">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={(url) => url}>
                               {note.content}
                             </ReactMarkdown>
                           </div>

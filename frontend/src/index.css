@@ -1835,15 +1835,40 @@ html, body {
   cursor: pointer;
   overflow: hidden;
   max-height: 240px;
-  background: #000;
+  min-height: 80px;
+  background: #090d14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .user-attached-img {
   width: 100%;
   height: auto;
+  max-height: 240px;
   display: block;
   object-fit: cover;
   transition: transform 0.2s ease;
+}
+
+.user-attached-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 90px;
+  width: 100%;
+  text-align: center;
+}
+
+.user-attached-fallback-icon {
+  color: #ef4444;
+  opacity: 0.85;
 }
 
 .user-attached-thumb-container:hover .user-attached-img {

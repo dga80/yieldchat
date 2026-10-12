@@ -34,12 +34,16 @@ FLASH_CANDIDATES = [
 ]
 
 API_KEY = os.getenv("GEMINI_API_KEY")
+DEFAULT_REQUEST_TIMEOUT_MS = int(os.getenv("GEMINI_TIMEOUT_MS", "40000"))  # 40s timeout HTTP por defecto
 
-def _get_client() -> genai.Client:
+def _get_client(timeout_ms: int = DEFAULT_REQUEST_TIMEOUT_MS) -> genai.Client:
     key = os.getenv("GEMINI_API_KEY") or API_KEY
     if not key or key == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY no está configurada en .env")
-    return genai.Client(api_key=key)
+    return genai.Client(
+        api_key=key,
+        http_options=types.HttpOptions(timeout=timeout_ms)
+    )
 
 
 def get_active_model_name() -> str:
@@ -509,13 +513,23 @@ async def stream_agent_chat(
             if multi_part_info:
                 yield {
                     "type": "tool_start",
-                    "tool": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']} autónomamente...",
-                    "message": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']} autónomamente..."
+                    "tool": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']}...",
+                    "message": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']}..."
+                }
+            else:
+                yield {
+                    "type": "tool_start",
+                    "tool": f"Conectando con {model_name}...",
+                    "message": f"Conectando con {model_name}..."
                 }
 
             task = asyncio.create_task(asyncio.to_thread(curr_chat.send_message, initial_payload))
+            elapsed = 0.0
+            MODEL_TIMEOUT_SECONDS = float(os.getenv("GEMINI_MODEL_TIMEOUT", "35.0"))
+
             while not task.done():
-                done, _ = await asyncio.wait([task], timeout=4.0)
+                done, _ = await asyncio.wait([task], timeout=2.5)
+                elapsed += 2.5
                 if done:
                     try:
                         first_response = task.result()
@@ -523,15 +537,36 @@ async def stream_agent_chat(
                         selected_model_name = model_name
                     except Exception as ex:
                         print(f"[GeminiAgent] Error ejecutando send_message con modelo {model_name}: {ex}")
+                        failed_attempts.append(f"{model_name}: {str(ex)[:100]}")
                     break
                 else:
                     if is_disconnected:
                         try:
                             if await is_disconnected():
+                                print(f"[GeminiAgent] Cliente desconectado. Cancelando llamada a {model_name}.")
                                 task.cancel()
                                 break
                         except Exception:
                             pass
+
+                    if elapsed >= MODEL_TIMEOUT_SECONDS:
+                        print(f"[GeminiAgent] Timeout de {int(elapsed)}s alcanzado para modelo {model_name}. Cancelando y probando fallback...")
+                        task.cancel()
+                        failed_attempts.append(f"{model_name}: Sin respuesta tras {int(elapsed)}s (timeout)")
+                        yield {
+                            "type": "tool_start",
+                            "tool": f"Tiempo de espera agotado con {model_name} ({int(elapsed)}s). Probando modelo alternativo...",
+                            "message": f"Tiempo de espera agotado con {model_name} ({int(elapsed)}s). Probando modelo alternativo..."
+                        }
+                        break
+
+                    # Enviar pista visual de tiempo transcurrido en tiempo real
+                    if not multi_part_info:
+                        yield {
+                            "type": "tool_start",
+                            "tool": f"Pensando con {model_name} ({int(elapsed)}s)...",
+                            "message": f"Pensando con {model_name} ({int(elapsed)}s)..."
+                        }
                     yield {"type": "ping"}
 
             if chat and first_response:
@@ -546,9 +581,13 @@ async def stream_agent_chat(
         print(f"[GeminiAgent] Todos los modelos fallaron: {all_failures}")
         err_msg = f"El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota ({all_failures[:300]}). Por favor, intenta de nuevo en unos segundos."
         memory_manager.add_message(session_id, "assistant", err_msg)
+        yield {"type": "tool_done"}
         yield {"type": "content", "content": err_msg}
         yield {"type": "done"}
         return
+
+    # Limpiar indicador de herramienta activa antes de continuar
+    yield {"type": "tool_done"}
 
     # Notificar modelo activo utilizado
     yield {"type": "model_info", "model": selected_model_name}
@@ -618,9 +657,12 @@ async def stream_agent_chat(
             task = asyncio.create_task(asyncio.to_thread(chat.send_message, cont_prompt))
             next_resp = None
             client_disconnected = False
+            elapsed_part = 0.0
+            PART_TIMEOUT_SECONDS = float(os.getenv("GEMINI_PART_TIMEOUT", "45.0"))
 
             while not task.done():
-                done, _ = await asyncio.wait([task], timeout=4.0)
+                done, _ = await asyncio.wait([task], timeout=2.5)
+                elapsed_part += 2.5
                 if done:
                     try:
                         next_resp = task.result()
@@ -637,6 +679,22 @@ async def stream_agent_chat(
                                 break
                         except Exception:
                             pass
+
+                    if elapsed_part >= PART_TIMEOUT_SECONDS:
+                        print(f"[GeminiAgent] Timeout de {int(elapsed_part)}s en parte {part_idx}. Cancelando intento...")
+                        task.cancel()
+                        yield {
+                            "type": "tool_start",
+                            "tool": f"Tiempo agotado en Parte {part_idx} ({int(elapsed_part)}s). Reintentando...",
+                            "message": f"Tiempo agotado en Parte {part_idx} ({int(elapsed_part)}s). Reintentando..."
+                        }
+                        break
+
+                    yield {
+                        "type": "tool_start",
+                        "tool": f"Redactando Parte {part_idx} de {total_p} ({int(elapsed_part)}s)...",
+                        "message": f"Redactando Parte {part_idx} de {total_p} ({int(elapsed_part)}s)..."
+                    }
                     yield {"type": "ping"}
 
             if client_disconnected:

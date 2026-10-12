@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -15,40 +15,70 @@ import {
   Maximize2,
   X,
   Eye,
-  StickyNote
+  StickyNote,
+  ImageOff
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { downloadTextAsFile } from '../utils/fileDownloader'
 
-function parseAttachmentLine(str) {
-  if (typeof str !== 'string') return null
-  const isAttachment = str.includes('Archivo adjunto:') || str.includes('Documento adjunto:') || str.includes('Documento PDF adjunto:')
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
+/**
+ * Filtro seguro de URLs para ReactMarkdown:
+ * Permite data:image base64 de imágenes adjuntas, rutas relativas (/api/uploads/...) y URLs estándar.
+ */
+function safeUrlTransform(url) {
+  if (!url) return ''
+  if (url.startsWith('data:image/')) return url
+  if (url.startsWith('/') || url.startsWith('./')) return url
+  if (/^(https?|blob):/i.test(url)) return url
+  return url
+}
+
+function parseAttachment(node, textContent) {
+  if (typeof textContent !== 'string') return null
+  const isAttachment = textContent.includes('Archivo adjunto:') || 
+                       textContent.includes('Documento adjunto:') || 
+                       textContent.includes('Documento PDF adjunto:')
   if (!isAttachment) return null
 
   let filename = ''
   let size = ''
   let url = null
 
-  const linkMatch = str.match(/\[([^\]]+)\]\(([^)]+)\)/)
-  if (linkMatch) {
-    filename = linkMatch[1]
-    url = linkMatch[2]
-  } else {
-    const codeMatch = str.match(/`([^`]+)`/)
-    if (codeMatch) {
-      filename = codeMatch[1]
+  // 1. Extraer datos estructurados de los elementos hijos del AST si están disponibles
+  if (node && Array.isArray(node.children)) {
+    for (const child of node.children) {
+      if (child.tagName === 'code') {
+        filename = child.children?.[0]?.value || ''
+      } else if (child.tagName === 'a') {
+        url = child.properties?.href || null
+        filename = child.children?.[0]?.value || ''
+      } else if (child.tagName === 'em') {
+        const val = child.children?.[0]?.value || ''
+        size = val.replace(/[()]/g, '').trim()
+      }
     }
   }
 
-  const sizeMatch = str.match(/\*\(([^)]+)\)\*/)
-  if (sizeMatch) {
-    size = sizeMatch[1]
+  // 2. Extraer mediante regex sobre textContent si el AST no vino estructurado
+  if (!filename) {
+    const textMatch = textContent.match(/(?:Archivo adjunto:|Documento(?:\s+PDF)?\s+adjunto:)\s*([^\s(]+)(?:\s*\(([^)]+)\))?/i)
+    if (textMatch) {
+      filename = textMatch[1].trim()
+      if (!size && textMatch[2]) size = textMatch[2].trim()
+    }
+  }
+
+  if (!size) {
+    const sizeMatch = textContent.match(/\(([^)]+)\)/)
+    if (sizeMatch) size = sizeMatch[1].trim()
   }
 
   if (!filename) return null
 
   const ext = filename.split('.').pop()?.toLowerCase() || ''
-  const isPdf = ext === 'pdf' || str.toLowerCase().includes('pdf')
+  const isPdf = ext === 'pdf' || textContent.toLowerCase().includes('pdf')
   const isCode = ['py', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'sql', 'sh', 'yaml', 'yml'].includes(ext)
   const isSheet = ['csv', 'tsv', 'xlsx', 'xls'].includes(ext)
 
@@ -56,7 +86,7 @@ function parseAttachmentLine(str) {
     filename,
     size,
     url,
-    extension: ext || 'txt',
+    extension: ext || (isPdf ? 'pdf' : 'txt'),
     type: isPdf ? 'pdf' : isCode ? 'code' : isSheet ? 'spreadsheet' : 'text'
   }
 }
@@ -65,6 +95,16 @@ function MessageItemComponent({ message, onSaveAsNote }) {
   const isUser = message.role === 'user'
   const [lightboxImg, setLightboxImg] = useState(null)
   const [isCopied, setIsCopied] = useState(false)
+
+  // Cerrar lightbox con tecla Escape
+  useEffect(() => {
+    if (!lightboxImg) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setLightboxImg(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [lightboxImg])
 
   const handleCopyFullMessage = () => {
     navigator.clipboard.writeText(message.content)
@@ -95,14 +135,14 @@ function MessageItemComponent({ message, onSaveAsNote }) {
             <div className="message-user-content">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                urlTransform={safeUrlTransform}
                 components={{
                   p({ node, children, ...props }) {
-                    // Comprobar si el texto del párrafo describe un archivo adjunto
                     const textContent = React.Children.toArray(children)
                       .map(child => (typeof child === 'string' ? child : child?.props?.children || ''))
                       .join('')
 
-                    const attachmentInfo = parseAttachmentLine(textContent)
+                    const attachmentInfo = parseAttachment(node, textContent)
                     if (attachmentInfo) {
                       return <UserFileAttachmentCard info={attachmentInfo} />
                     }
@@ -110,11 +150,14 @@ function MessageItemComponent({ message, onSaveAsNote }) {
                     return <p {...props}>{children}</p>
                   },
                   img({ node, src, alt, ...props }) {
+                    const resolved = src?.startsWith('/api')
+                      ? `${API_BASE.replace(/\/api$/, '')}${src}`
+                      : src
                     return (
                       <UserImageAttachmentCard
-                        src={src}
+                        src={resolved}
                         alt={alt || 'Referencia visual'}
-                        onOpenLightbox={() => setLightboxImg(src)}
+                        onOpenLightbox={() => setLightboxImg(resolved)}
                       />
                     )
                   }
@@ -127,9 +170,13 @@ function MessageItemComponent({ message, onSaveAsNote }) {
             <div className="message-agent-content">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                urlTransform={safeUrlTransform}
                 components={{
                   img({ node, src, alt, ...props }) {
-                    return <ImageCard src={src} alt={alt} onOpenLightbox={() => setLightboxImg(src)} />
+                    const resolved = src?.startsWith('/api')
+                      ? `${API_BASE.replace(/\/api$/, '')}${src}`
+                      : src
+                    return <ImageCard src={resolved} alt={alt} onOpenLightbox={() => setLightboxImg(resolved)} />
                   },
                   code({ node, inline, className, children, ...props }) {
                     const match = /language-(\w+)/.exec(className || '')
@@ -221,7 +268,7 @@ function MessageItemComponent({ message, onSaveAsNote }) {
                 target="_blank" 
                 rel="noreferrer" 
                 className="lightbox-action-btn"
-                download
+                download="imagen_referencia.jpg"
               >
                 <Download size={14} />
                 <span>Descargar archivo</span>
@@ -238,21 +285,53 @@ function MessageItemComponent({ message, onSaveAsNote }) {
  * Tarjeta para imágenes adjuntas por el usuario con miniatura y botón de zoom
  */
 function UserImageAttachmentCard({ src, alt, onOpenLightbox }) {
+  const [hasError, setHasError] = useState(false)
+  const resolvedSrc = src?.startsWith('/api')
+    ? `${API_BASE.replace(/\/api$/, '')}${src}`
+    : src
+
   return (
     <div className="user-attached-image-card">
-      <div className="user-attached-thumb-container" onClick={onOpenLightbox} title="Clic para ampliar imagen">
-        <img src={src} alt={alt} className="user-attached-img" />
-        <div className="user-attached-hover-overlay">
-          <Maximize2 size={16} />
-          <span>Ampliar</span>
-        </div>
+      <div 
+        className="user-attached-thumb-container" 
+        onClick={!hasError ? onOpenLightbox : undefined} 
+        title={hasError ? 'No se pudo cargar la imagen' : 'Clic para ampliar imagen'}
+      >
+        {hasError ? (
+          <div className="user-attached-fallback">
+            <ImageOff size={22} className="user-attached-fallback-icon" />
+            <span>Vista previa no disponible</span>
+          </div>
+        ) : (
+          <>
+            <img 
+              src={resolvedSrc} 
+              alt="" 
+              className="user-attached-img" 
+              onError={() => setHasError(true)}
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="user-attached-hover-overlay">
+              <Maximize2 size={16} />
+              <span>Ampliar</span>
+            </div>
+          </>
+        )}
       </div>
       <div className="user-attached-caption">
         <span className="user-attached-tag">📷 Imagen adjunta</span>
-        <button type="button" className="user-attached-zoom-btn" onClick={onOpenLightbox} title="Ver tamaño completo">
-          <Eye size={12} />
-          <span>Ver</span>
-        </button>
+        {!hasError && (
+          <button 
+            type="button" 
+            className="user-attached-zoom-btn" 
+            onClick={onOpenLightbox} 
+            title="Ver tamaño completo"
+          >
+            <Eye size={12} />
+            <span>Ver</span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -263,6 +342,9 @@ function UserImageAttachmentCard({ src, alt, onOpenLightbox }) {
  */
 function UserFileAttachmentCard({ info }) {
   const { filename, size, url, extension, type } = info
+  const resolvedUrl = url?.startsWith('/api')
+    ? `${API_BASE.replace(/\/api$/, '')}${url}`
+    : url
 
   return (
     <div className={`user-file-card ${type}`}>
@@ -287,12 +369,13 @@ function UserFileAttachmentCard({ info }) {
         </div>
       </div>
 
-      {url && (
+      {resolvedUrl && (
         <a 
-          href={url} 
+          href={resolvedUrl} 
           target="_blank" 
           rel="noreferrer" 
           className="user-file-action-btn"
+          download={filename}
           title="Abrir o descargar archivo"
         >
           <Download size={13} />
@@ -302,8 +385,6 @@ function UserFileAttachmentCard({ info }) {
     </div>
   )
 }
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 const ImageCard = React.memo(function ImageCard({ src, alt, onOpenLightbox }) {
   const [downloading, setDownloading] = useState(false)

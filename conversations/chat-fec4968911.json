@@ -3,7 +3,7 @@
   "title": "construye las partes de un guión",
   "folder_id": "folder-1bdeeead",
   "created_at": "2026-10-12T19:13:45.983275+00:00",
-  "updated_at": "2026-10-12T19:56:47.090400+00:00",
+  "updated_at": "2026-10-12T20:00:55.207397+00:00",
   "folder_name": "@puntoSupuesto",
   "folder_color": "#F59E0B",
   "messages": [
@@ -34,6 +34,27 @@
       "content": "Aquí tienes el kit completo de SEO y packaging optimizado para maximizar el CTR en Smart TV y dispositivos móviles para este vídeo de **`@PuntoSupuesto`**:\n\n---\n\n### 🖼️ 1. TÍTULO DE MINIATURA (Texto en pantalla)\n* **Línea 1 (Blanco #FFFFFF):** SIN\n* **Línea 2 (Amarillo #FFD700):** DOLOR\n\n*(Tipografía ultra-gruesa tipo Montserrat Black o Impact, con alto contraste directo sobre un fondo de ilustración estilo Ghibli/Seinen de una persona observando con frialdad una herida o quemadura en su mano sin inmutarse).*\n\n---\n\n### 📁 2. TÍTULOS DE ARCHIVO (SEO Interno antes de subir)\n* **Vídeo:** `que-pasaria-si-dejaramos-de-sentir-dolor-fisico-documental.mp4`\n* **Miniatura:** `miniatura-sin-dolor-punto-supuesto.png`\n\n---\n\n### 🎬 3. TÍTULO DEL VÍDEO (YouTube)\n* **¿Qué Pasaría si Dejáramos de Sentir Dolor Físico?**\n\n---\n\n### 📝 4. DESCRIPCIÓN DEL VÍDEO\nImagina despertar mañana y descubrir que tu cuerpo se ha quedado completamente en silencio. Coge una taza hirviendo o sufre una herida profunda y nota cómo el sistema nervioso ya no emite ninguna señal de alarma. ¿Es el superpoder definitivo o la sentencia de muerte biológica de la humanidad?\n\nEn este experimento mental exploramos el terror silencioso de un mundo sin dolor físico: desde el colapso de los órganos internos que fallan sin previo aviso, hasta la destrucción involuntaria de un cuerpo humano convertido en cristal. El dolor no es un castigo; es el guardián invisible que nos mantiene con vida.\n\n☕ **Suscríbete a @PuntoSupuesto** para más experimentos mentales y dilemas existenciales extremos.\n\n---\n\n### 🏷️ 5. ETIQUETAS (Tags)\nque pasaria si dejaramos de sentir dolor, fin del dolor fisico, que pasaria si no sintieras dolor, ausencia de dolor, experimento mental, ciencia ficcion, catastrofe biologica, cuerpo humano, medicina forense, supervivencia, apocalipsis corporal, PuntoSupuesto, que pasaria si, colapso humano",
       "tool_calls": null,
       "created_at": "2026-10-12T19:56:47.090400+00:00"
+    },
+    {
+      "id": 512,
+      "role": "user",
+      "content": "![Referencia](/api/uploads/ref_a21786d1.jpg)\n\n![Referencia](/api/uploads/ref_6e0b0252.jpg)\n\nAnaliza los archivos adjuntos.",
+      "tool_calls": null,
+      "created_at": "2026-10-12T20:00:06.224257+00:00"
+    },
+    {
+      "id": 513,
+      "role": "user",
+      "content": "cuál ves mejor?",
+      "tool_calls": null,
+      "created_at": "2026-10-12T20:00:40.230656+00:00"
+    },
+    {
+      "id": 514,
+      "role": "assistant",
+      "content": "La opción **ganadora e indiscutible** para el canal `@PuntoSupuesto` es:\n\n* **Título de Vídeo:** `¿Qué Pasaría si Dejáramos de Sentir Dolor Físico?`\n* **Texto de Miniatura:** `SIN` (Blanco) / `DOLOR` (Amarillo #FFD700)\n\n---\n\n### ¿Por qué esta combinación es la superior frente a otras alternativas?\n\n#### 1. Consistencia de Patrón y Algoritmo (Branding del Canal)\nTus otros vídeos (`¿Qué Pasaría si Fuera Imposible Olvidar?`, `¿Qué Pasaría si Nadie Volviera a Dormir?`, `¿Qué pasaría si la gravedad disminuyera a la mitad?`) ya han entrenado al algoritmo para asociar la estructura **\"¿Qué Pasaría si...?\"** con tu audiencia objetivo. Cambiar a títulos narrativos tipo *\"El día que el cuerpo dejó de sentir...\"* reduce la coincidencia de patrones en las recomendaciones laterales.\n\n#### 2. Regla de los 3 Elementos y Brecha de Curiosidad (Tim Danilov)\nEn Smart TV y móviles, el espectador escanea la pantalla en menos de **0.2 segundos**:\n* **Elemento 1 (Imagen):** Personaje mirando fijamente una herida/fuego en su mano sin inmutarse.\n* **Elemento 2 (Texto):** `SIN DOLOR` (2 palabras gigantes, altísimo contraste).\n* **Elemento 3 (Brecha de Curiosidad):** El espectador piensa inicialmente *\"no sentir dolor es genial / un superpoder\"*, pero el título y la atmósfera oscura sugieren *\"es una catástrofe\"*. Esa contradicción mental es la que provoca el clic.\n\n#### 3. Ergonomía Visual en Smart TV (50%+ del tráfico)\nLas frases más complejas o metafóricas en la miniatura (como *\"Cuerpo de Cristal\"* o *\"Sin Alarmas\"*) requieren procesar el texto. **`SIN DOLOR`** se lee de un vistazo a 3 metros de distancia en cualquier televisor sin generar fricción cognitiva.",
+      "tool_calls": null,
+      "created_at": "2026-10-12T20:00:55.207397+00:00"
     }
   ],
   "notes": [

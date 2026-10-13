@@ -28,18 +28,53 @@ _session_created_notes: Dict[str, List[Dict[str, Any]]] = {}
 
 FLASH_CANDIDATES = [
     "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
     "gemini-3.6-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite"
+    "gemini-3.5-flash-lite"
 ]
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 DEFAULT_REQUEST_TIMEOUT_MS = int(os.getenv("GEMINI_TIMEOUT_MS", "40000"))  # 40s timeout HTTP por defecto
+_key_round_robin_index: int = 0
 
-def _get_client(timeout_ms: int = DEFAULT_REQUEST_TIMEOUT_MS) -> genai.Client:
-    key = os.getenv("GEMINI_API_KEY") or API_KEY
-    if not key or key == "your_gemini_api_key_here":
-        raise ValueError("GEMINI_API_KEY no está configurada en .env")
+
+def get_all_api_keys() -> List[str]:
+    """Retorna todas las claves API disponibles configuradas en .env o entorno."""
+    keys: List[str] = []
+
+    # 1. Comprobar GEMINI_API_KEYS (lista separada por comas)
+    multi = (os.getenv("GEMINI_API_KEYS") or "").strip()
+    if multi:
+        for k in multi.split(","):
+            k = k.strip()
+            if k and k != "your_gemini_api_key_here" and k not in keys:
+                keys.append(k)
+
+    # 2. Comprobar variables individuales
+    for var in ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_SECONDARY"]:
+        k = (os.getenv(var) or "").strip()
+        if k and k != "your_gemini_api_key_here" and k not in keys:
+            keys.append(k)
+
+    if not keys and API_KEY and API_KEY != "your_gemini_api_key_here":
+        keys.append(API_KEY)
+
+    return keys
+
+
+def get_next_api_key() -> str:
+    """Retorna la siguiente clave de la lista aplicando rotación Round-Robin."""
+    global _key_round_robin_index
+    keys = get_all_api_keys()
+    if not keys:
+        raise ValueError("No hay ninguna clave GEMINI_API_KEY configurada en .env")
+    key = keys[_key_round_robin_index % len(keys)]
+    _key_round_robin_index = (_key_round_robin_index + 1) % len(keys)
+    return key
+
+
+def _get_client(api_key: Optional[str] = None, timeout_ms: int = DEFAULT_REQUEST_TIMEOUT_MS) -> genai.Client:
+    key = api_key or get_next_api_key()
     return genai.Client(
         api_key=key,
         http_options=types.HttpOptions(timeout=timeout_ms)
@@ -337,6 +372,16 @@ def _sanitize_history_for_genai(raw_messages: List[Dict[str, Any]]) -> List[type
         content = msg.get("content", "").strip()
         if not content:
             continue
+
+        # Filtrar mensajes de error del sistema o avisos de cuota guardados en el historial
+        if role == "model" and any(err_kw in content for err_kw in [
+            "El servicio de Gemini no respondió",
+            "503 UNAVAILABLE",
+            "alcanzó el límite de cuota",
+            "RESOURCE_EXHAUSTED",
+            "is currently experiencing high demand"
+        ]):
+            continue
             
         if not sanitized:
             if role == "user":
@@ -373,7 +418,6 @@ async def stream_agent_chat(
     Ejecuta el ciclo conversacional de Gemini con herramientas nativas automáticas,
     soporte multimodal, bucle autónomo multi-paso para guiones, y streaming no bloqueante.
     """
-    client = _get_client()
     _current_session_id.set(session_id)
     _session_created_notes[session_id] = []
     uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
@@ -422,6 +466,19 @@ async def stream_agent_chat(
                     raw_b64 = raw_b64.split(",", 1)[1]
                 try:
                     img_bytes = base64.b64decode(raw_b64)
+                    # Normalizar imagen (convertir RGBA PNG, WebP a RGB JPEG optimizado)
+                    try:
+                        pil_img = Image.open(io.BytesIO(img_bytes))
+                        if pil_img.mode != "RGB":
+                            pil_img = pil_img.convert("RGB")
+                        if max(pil_img.size) > 1920:
+                            pil_img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
+                        buf = io.BytesIO()
+                        pil_img.save(buf, format="JPEG", quality=88, optimize=True)
+                        img_bytes = buf.getvalue()
+                    except Exception as p_ex:
+                        print(f"[GeminiAgent] Aviso normalizando imagen: {p_ex}")
+
                     ref_filename = f"ref_{uuid.uuid4().hex[:8]}.jpg"
                     ref_filepath = os.path.join(uploads_dir, ref_filename)
                     with open(ref_filepath, "wb") as imgf:
@@ -439,6 +496,18 @@ async def stream_agent_chat(
                 if "," in raw_b64:
                     raw_b64 = raw_b64.split(",", 1)[1]
                 img_bytes = base64.b64decode(raw_b64)
+                try:
+                    pil_img = Image.open(io.BytesIO(img_bytes))
+                    if pil_img.mode != "RGB":
+                        pil_img = pil_img.convert("RGB")
+                    if max(pil_img.size) > 1920:
+                        pil_img.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
+                    buf = io.BytesIO()
+                    pil_img.save(buf, format="JPEG", quality=88, optimize=True)
+                    img_bytes = buf.getvalue()
+                except Exception as p_ex:
+                    print(f"[GeminiAgent] Aviso normalizando imagen legacy: {p_ex}")
+
                 ref_filename = f"ref_{uuid.uuid4().hex[:8]}.jpg"
                 ref_filepath = os.path.join(uploads_dir, ref_filename)
                 with open(ref_filepath, "wb") as imf:
@@ -507,80 +576,142 @@ async def stream_agent_chat(
         else:
             initial_payload = f"{initial_payload}{directive}"
 
-    for model_name in candidate_models:
-        try:
-            curr_chat = client.chats.create(model=model_name, config=config, history=formatted_history)
-            if multi_part_info:
-                yield {
-                    "type": "tool_start",
-                    "tool": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']}...",
-                    "message": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']}..."
-                }
-            else:
-                yield {
-                    "type": "tool_start",
-                    "tool": f"Conectando con {model_name}...",
-                    "message": f"Conectando con {model_name}..."
-                }
+    MODEL_TIMEOUT_SECONDS = float(os.getenv("GEMINI_MODEL_TIMEOUT", "22.0"))
 
-            task = asyncio.create_task(asyncio.to_thread(curr_chat.send_message, initial_payload))
-            elapsed = 0.0
-            MODEL_TIMEOUT_SECONDS = float(os.getenv("GEMINI_MODEL_TIMEOUT", "35.0"))
+    # Recuperar claves API configuradas y rotar Round-Robin para balancear cuotas
+    all_keys = get_all_api_keys()
+    if not all_keys:
+        all_keys = [API_KEY or ""]
 
-            while not task.done():
-                done, _ = await asyncio.wait([task], timeout=2.5)
-                elapsed += 2.5
-                if done:
-                    try:
-                        first_response = task.result()
-                        chat = curr_chat
-                        selected_model_name = model_name
-                    except Exception as ex:
-                        print(f"[GeminiAgent] Error ejecutando send_message con modelo {model_name}: {ex}")
-                        failed_attempts.append(f"{model_name}: {str(ex)[:100]}")
-                    break
-                else:
-                    if is_disconnected:
-                        try:
-                            if await is_disconnected():
-                                print(f"[GeminiAgent] Cliente desconectado. Cancelando llamada a {model_name}.")
-                                task.cancel()
-                                break
-                        except Exception:
-                            pass
+    global _key_round_robin_index
+    start_k = _key_round_robin_index % len(all_keys)
+    _key_round_robin_index = (_key_round_robin_index + 1) % len(all_keys)
+    ordered_keys = all_keys[start_k:] + all_keys[:start_k]
 
-                    if elapsed >= MODEL_TIMEOUT_SECONDS:
-                        print(f"[GeminiAgent] Timeout de {int(elapsed)}s alcanzado para modelo {model_name}. Cancelando y probando fallback...")
-                        task.cancel()
-                        failed_attempts.append(f"{model_name}: Sin respuesta tras {int(elapsed)}s (timeout)")
+    selected_model_name = None
+    chat = None
+    first_response = None
+    failed_attempts = []
+
+    for key_attempt_idx, current_api_key in enumerate(ordered_keys, 1):
+        client = _get_client(api_key=current_api_key)
+        real_key_num = all_keys.index(current_api_key) + 1
+        key_label = f" [Key #{real_key_num}]" if len(all_keys) > 1 else ""
+
+        for model_name in candidate_models:
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    curr_chat = client.chats.create(model=model_name, config=config, history=formatted_history)
+                    if multi_part_info:
                         yield {
                             "type": "tool_start",
-                            "tool": f"Tiempo de espera agotado con {model_name} ({int(elapsed)}s). Probando modelo alternativo...",
-                            "message": f"Tiempo de espera agotado con {model_name} ({int(elapsed)}s). Probando modelo alternativo..."
+                            "tool": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']}...",
+                            "message": f"Redactando Parte {multi_part_info['start']} de {multi_part_info['total']}..."
                         }
+                    else:
+                        if attempt > 0:
+                            yield {
+                                "type": "tool_start",
+                                "tool": f"Reintentando {model_name}{key_label}...",
+                                "message": f"Reintentando {model_name}{key_label}..."
+                            }
+                        else:
+                            yield {
+                                "type": "tool_start",
+                                "tool": f"Conectando con {model_name}{key_label}...",
+                                "message": f"Conectando con {model_name}{key_label}..."
+                            }
+
+                    task = asyncio.create_task(asyncio.to_thread(curr_chat.send_message, initial_payload))
+                    elapsed = 0.0
+                    is_503 = False
+
+                    while not task.done():
+                        done, _ = await asyncio.wait([task], timeout=2.0)
+                        elapsed += 2.0
+                        if done:
+                            try:
+                                first_response = task.result()
+                                chat = curr_chat
+                                selected_model_name = model_name
+                            except Exception as ex:
+                                ex_str = str(ex)
+                                print(f"[GeminiAgent] Error ejecutando send_message con modelo {model_name}{key_label}: {ex}")
+                                failed_attempts.append(f"{model_name}{key_label}: {ex_str[:100]}")
+                                if any(k in ex_str for k in ["503", "UNAVAILABLE", "high demand"]):
+                                    is_503 = True
+                            break
+                        else:
+                            if is_disconnected:
+                                try:
+                                    if await is_disconnected():
+                                        print(f"[GeminiAgent] Cliente desconectado. Cancelando llamada a {model_name}.")
+                                        task.cancel()
+                                        break
+                                except Exception:
+                                    pass
+
+                            if elapsed >= MODEL_TIMEOUT_SECONDS:
+                                print(f"[GeminiAgent] Timeout de {int(elapsed)}s alcanzado para modelo {model_name}{key_label}. Cancelando y probando fallback...")
+                                task.cancel()
+                                failed_attempts.append(f"{model_name}{key_label}: Sin respuesta tras {int(elapsed)}s (timeout)")
+                                yield {
+                                    "type": "tool_start",
+                                    "tool": f"Tiempo de espera agotado con {model_name} ({int(elapsed)}s). Probando modelo alternativo...",
+                                    "message": f"Tiempo de espera agotado con {model_name} ({int(elapsed)}s). Probando modelo alternativo..."
+                                }
+                                break
+
+                            # Enviar pista visual de tiempo transcurrido en tiempo real
+                            if not multi_part_info:
+                                yield {
+                                    "type": "tool_start",
+                                    "tool": f"Pensando con {model_name}{key_label} ({int(elapsed)}s)...",
+                                    "message": f"Pensando con {model_name}{key_label} ({int(elapsed)}s)..."
+                                }
+                            yield {"type": "ping"}
+
+                    if chat and first_response:
                         break
 
-                    # Enviar pista visual de tiempo transcurrido en tiempo real
-                    if not multi_part_info:
+                    # Si hubo un pico de saturación 503 y queda reintento, pausar 1.5s antes del reintento
+                    if is_503 and attempt < max_retries - 1:
                         yield {
                             "type": "tool_start",
-                            "tool": f"Pensando con {model_name} ({int(elapsed)}s)...",
-                            "message": f"Pensando con {model_name} ({int(elapsed)}s)..."
+                            "tool": f"{model_name} saturado momentáneamente. Reintentando...",
+                            "message": f"{model_name} saturado momentáneamente. Reintentando..."
                         }
-                    yield {"type": "ping"}
+                        await asyncio.sleep(1.5)
+                    else:
+                        break
+
+                except Exception as e:
+                    failed_attempts.append(f"{model_name}{key_label}: {type(e).__name__} - {str(e)[:100]}")
+                    print(f"[GeminiAgent] Fallo con modelo {model_name}{key_label}: {e}")
+                    break
 
             if chat and first_response:
                 break
-        except Exception as e:
-            failed_attempts.append(f"{model_name}: {type(e).__name__} - {str(e)[:100]}")
-            print(f"[GeminiAgent] Fallo con modelo {model_name}: {e}")
-            continue
+
+        if chat and first_response:
+            break
+
+        # Si fallaron los modelos con esta clave y disponemos de otra clave, pivotar
+        if key_attempt_idx < len(ordered_keys):
+            next_key_num = all_keys.index(ordered_keys[key_attempt_idx]) + 1
+            yield {
+                "type": "tool_start",
+                "tool": f"Pivotando automáticamente a clave API de respaldo (Key #{next_key_num})...",
+                "message": f"Pivotando automáticamente a clave API de respaldo (Key #{next_key_num})..."
+            }
+            print(f"[GeminiAgent] Clave API agotada/saturada. Pivotando a clave #{next_key_num} ({key_attempt_idx + 1}/{len(ordered_keys)})...")
 
     if not chat or not first_response:
         all_failures = " | ".join(failed_attempts)
         print(f"[GeminiAgent] Todos los modelos fallaron: {all_failures}")
-        err_msg = f"El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota ({all_failures[:300]}). Por favor, intenta de nuevo en unos segundos."
-        memory_manager.add_message(session_id, "assistant", err_msg)
+        err_msg = f"El servicio de Gemini no respondió a tiempo o los modelos están saturados ({all_failures[:300]}). Por favor, intenta de nuevo en unos segundos."
+        # No persistir mensajes de fallo del sistema como respuestas para no contaminar el historial
         yield {"type": "tool_done"}
         yield {"type": "content", "content": err_msg}
         yield {"type": "done"}

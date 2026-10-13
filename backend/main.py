@@ -365,13 +365,14 @@ def get_status():
     import google.genai as gai
     active_model = gemini_agent.get_active_model_name()
     has_yt_key = bool(os.getenv("YOUTUBE_API_KEY") and os.getenv("YOUTUBE_API_KEY") != "your_youtube_api_key_here")
-    has_gemini_key = bool(os.getenv("GEMINI_API_KEY") and os.getenv("GEMINI_API_KEY") != "your_gemini_api_key_here")
+    gemini_keys = gemini_agent.get_all_api_keys()
     
     return {
         "status": "online",
         "active_gemini_model": active_model,
         "youtube_api_configured": has_yt_key,
-        "gemini_api_configured": has_gemini_key,
+        "gemini_api_configured": len(gemini_keys) > 0,
+        "gemini_keys_count": len(gemini_keys),
         "genai_version": getattr(gai, "__version__", "unknown"),
         "app_name": "YieldChat"
     }
@@ -380,20 +381,24 @@ def get_status():
 @app.get("/api/diag")
 def get_diag():
     active_model = gemini_agent.get_active_model_name()
-    key = os.getenv("GEMINI_API_KEY", "")
-    key_info = {
-        "configured": bool(key and key != "your_gemini_api_key_here"),
-        "length": len(key),
-        "prefix": key[:8] if key else "",
-        "suffix": key[-4:] if key else "",
-        "has_newline": "\n" in key or "\r" in key,
-        "has_quotes": key.startswith(('"', "'"))
-    }
+    keys = gemini_agent.get_all_api_keys()
+    keys_info = [
+        {
+            "key_index": i + 1,
+            "configured": bool(k and k != "your_gemini_api_key_here"),
+            "length": len(k),
+            "prefix": k[:8] if k else "",
+            "suffix": k[-4:] if k else "",
+            "has_newline": "\n" in k or "\r" in k,
+            "has_quotes": k.startswith(('"', "'"))
+        }
+        for i, k in enumerate(keys)
+    ]
     
     test_results = {}
     try:
         client = gemini_agent._get_client()
-        for m in ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
+        for m in ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash"]:
             try:
                 chat = client.chats.create(model=m)
                 resp = chat.send_message("ping")
@@ -402,11 +407,12 @@ def get_diag():
             except Exception as ex:
                 test_results[m] = {"status": "error", "type": type(ex).__name__, "message": str(ex)[:200]}
     except Exception as e:
-        return {"key_info": key_info, "client_error": str(e), "active_model": active_model}
+        return {"keys_info": keys_info, "client_error": str(e), "active_model": active_model}
         
     import google.genai as gai
     return {
-        "key_info": key_info,
+        "keys_configured": len(keys),
+        "keys_info": keys_info,
         "test_results": test_results,
         "active_model": active_model,
         "google_genai_version": getattr(gai, "__version__", "unknown")

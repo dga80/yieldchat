@@ -3,7 +3,7 @@
   "title": "dame la estructura de un guión e",
   "folder_id": "folder-1bdeeead",
   "created_at": "2026-10-13T14:17:09.322190+00:00",
-  "updated_at": "2026-10-13T15:01:19.873511+00:00",
+  "updated_at": "2026-10-13T15:09:16.875926+00:00",
   "folder_name": "@puntoSupuesto",
   "folder_color": "#F59E0B",
   "messages": [
@@ -55,6 +55,13 @@
       "content": "me parecen pocos tags, no aprovechamos los 500 caracteres que ofrece google para añadir",
       "tool_calls": null,
       "created_at": "2026-10-13T15:01:19.873511+00:00"
+    },
+    {
+      "id": 547,
+      "role": "user",
+      "content": "me parecen pocos tags, no aprovechamos los 500 caracteres que ofrece google para añadir",
+      "tool_calls": null,
+      "created_at": "2026-10-13T15:09:16.875926+00:00"
     }
   ],
   "notes": [

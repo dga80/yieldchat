@@ -1,0 +1,40 @@
+{
+  "id": "test-multi-key",
+  "title": "Hola, confirma en 1 palabra qu...",
+  "folder_id": null,
+  "created_at": "2026-10-13T14:54:14.944550+00:00",
+  "updated_at": "2026-10-13T14:54:46.763771+00:00",
+  "folder_name": null,
+  "folder_color": null,
+  "messages": [
+    {
+      "id": 525,
+      "role": "user",
+      "content": "Hola, confirma en 1 palabra que estás online",
+      "tool_calls": null,
+      "created_at": "2026-10-13T14:54:14.992615+00:00"
+    },
+    {
+      "id": 526,
+      "role": "user",
+      "content": "Di OK",
+      "tool_calls": null,
+      "created_at": "2026-10-13T14:54:20.665249+00:00"
+    },
+    {
+      "id": 527,
+      "role": "user",
+      "content": "Di exactamente OK",
+      "tool_calls": null,
+      "created_at": "2026-10-13T14:54:40.338843+00:00"
+    },
+    {
+      "id": 528,
+      "role": "assistant",
+      "content": "OK",
+      "tool_calls": null,
+      "created_at": "2026-10-13T14:54:46.763771+00:00"
+    }
+  ],
+  "notes": []
+}

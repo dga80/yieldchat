@@ -3,7 +3,7 @@
   "title": "dame la estructura de un guión e",
   "folder_id": "folder-1bdeeead",
   "created_at": "2026-10-13T14:17:09.322190+00:00",
-  "updated_at": "2026-10-13T14:18:30.013343+00:00",
+  "updated_at": "2026-10-13T14:21:37.305206+00:00",
   "folder_name": "@puntoSupuesto",
   "folder_color": "#F59E0B",
   "messages": [
@@ -20,6 +20,20 @@
       "content": "El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota (gemini-3.5-flash: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high deman | gemini-3.6-flash: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high deman | gemini-3.5-flash-lite: Sin respuesta tras 35s (timeout) | ). Por favor, intenta de nuevo en unos segundos.",
       "tool_calls": null,
       "created_at": "2026-10-13T14:18:30.013343+00:00"
+    },
+    {
+      "id": 519,
+      "role": "user",
+      "content": "![Referencia](/api/uploads/ref_b72b575a.jpg)\n\ndame la estructura de un guión en base a:",
+      "tool_calls": null,
+      "created_at": "2026-10-13T14:19:49.797743+00:00"
+    },
+    {
+      "id": 520,
+      "role": "assistant",
+      "content": "El servicio de Gemini no respondió en el tiempo límite o alcanzó el límite de cuota (gemini-3.5-flash: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high deman | gemini-3.6-flash: Sin respuesta tras 35s (timeout) | gemini-3.5-flash-lite: Sin respuesta tras 35s (timeout) | gemini-3.1-flash-lite: 503 UNAVAILABLE. {'error': {'code': 503, 'mes). Por favor, intenta de nuevo en unos segundos.",
+      "tool_calls": null,
+      "created_at": "2026-10-13T14:21:37.305206+00:00"
     }
   ],
   "notes": []

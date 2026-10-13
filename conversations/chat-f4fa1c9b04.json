@@ -3,7 +3,7 @@
   "title": "dame la estructura de un guión e",
   "folder_id": "folder-1bdeeead",
   "created_at": "2026-10-13T14:17:09.322190+00:00",
-  "updated_at": "2026-10-13T14:58:23.666256+00:00",
+  "updated_at": "2026-10-13T15:01:19.873511+00:00",
   "folder_name": "@puntoSupuesto",
   "folder_color": "#F59E0B",
   "messages": [
@@ -48,6 +48,13 @@
       "content": "He guardado la ficha completa en la **columna lateral de notas** para que la tengas accesible como referencia rápida durante el montaje y subida del vídeo.\n\nAquí tienes la configuración técnica optimizada para mantener la coherencia de branding de `@PuntoSupuesto` y garantizar el máximo CTR en Smart TV y dispositivos móviles:\n\n---\n\n### 🖼️ 1. TEXTO EN MINIATURA (Packaging Smart TV)\n* **Línea 1 (Blanco #FFFFFF):** `200%`\n* **Línea 2 (Amarillo #FFD700):** `OXÍGENO`\n\n> **Razón técnica:** Usar el número y símbolo (`200%`) frena el scroll de forma más agresiva en Smart TV que la palabra \"Doble\". Transmite el concepto al cerebro en menos de 0.2 segundos.\n\n---\n\n### 📁 2. NOMBRES DE ARCHIVO (SEO Interno antes de subir)\n* **Vídeo:** `que-pasaria-si-el-oxigeno-se-duplicara.mp4`\n* **Miniatura:** `miniatura-que-pasaria-si-el-oxigeno-se-duplicara.jpg`\n\n---\n\n### 🎬 3. TÍTULO DEL VÍDEO\n* **Opción Principal (Recomendada):** `¿Qué Pasaría si el Oxígeno se Duplicara?`\n* **Opción Alternativa B:** `¿Qué Pasaría si el Aire Tuviera el Doble de Oxígeno?`\n\n---\n\n### 📝 4. DESCRIPCIÓN DEL VÍDEO\n\n```text\nImagina despertar mañana y que cada bocanada de aire te otorgue una energía y lucidez sobrehumanas. Al principio parece la mayor bendición de la historia... hasta que la química de la Tierra muestra su cara más oscura.\n\nSi la concentración de oxígeno en la atmósfera se duplicara al instante, pasaríamos de una era de superrendimiento físico al colapso global por deflagraciones espontáneas e incendios incontrolables.\n\nEscribe en los comentarios desde qué ciudad o país estás escuchando este vídeo y qué harías en tu primer día en este escenario.\n\nCapítulos:\n0:00 El día que el aire cambió\n0:45 La Era de Oro: Rendimiento sobrehumano\n2:30 La química del fuego descontrolado\n5:00 La reacción en cadena e incendios globales\n7:30 El nuevo equilibrio del planeta\n\n#PuntoSupuesto #ExperimentoMental #Ciencia #QuePasariaSi #CatastrofeGlobal\n```\n\n---\n\n### 🏷️ 5. TAGS / ETIQUETAS (Listas para copiar)\n\n```text\nque pasaria si el oxigeno se duplicara, doble de oxigeno en la tierra, que pasaria si hubiese mas oxigeno, experimento mental oxigeno, mas oxigeno en la atmosfera, que pasa si se duplica el oxigeno, fin del mundo oxigeno, catastrofe global, PuntoSupuesto, ciencia ficcion, experimento mental, que pasaria si, atmosfera de la tierra, oxigeno y fuego, colapso de la civilizacion\n```",
       "tool_calls": null,
       "created_at": "2026-10-13T14:58:23.666256+00:00"
+    },
+    {
+      "id": 546,
+      "role": "user",
+      "content": "me parecen pocos tags, no aprovechamos los 500 caracteres que ofrece google para añadir",
+      "tool_calls": null,
+      "created_at": "2026-10-13T15:01:19.873511+00:00"
     }
   ],
   "notes": [

@@ -3,7 +3,7 @@
   "title": "este es mi nuevo canal drdisaste",
   "folder_id": "folder-c6fc8f45",
   "created_at": "2026-10-20T19:51:04.532787+00:00",
-  "updated_at": "2026-10-20T19:56:31.076196+00:00",
+  "updated_at": "2026-10-20T20:00:10.221822+00:00",
   "folder_name": "@drDisaster",
   "folder_color": "#F59E0B",
   "messages": [
@@ -34,6 +34,20 @@
       "content": "Excelente pregunta. Es crucial entender la diferencia entre las palabras clave para el canal y los hashtags en la descripción.\n\n1.  **Palabras Clave del Canal (Keywords):**\n    *   **No van en la descripción del canal.** YouTube tiene una sección específica para esto en `YouTube Studio > Configuración > Canal > Información básica > Palabras clave`.\n    *   **Se introducen separadas por comas**, sin hashtags. Por ejemplo: `desastres, supervivencia, riesgos globales, catástrofes naturales, análisis documental, ciencia de desastres, historia, riesgos planetarios, Dr. Disaster`.\n    *   Estas palabras clave ayudan a YouTube a entender la temática general de tu canal para emparejarte con audiencias relevantes en búsquedas y sugerencias.\n\n2.  **Descripción del Canal:**\n    *   Esta sección debe ser un **texto en lenguaje natural**, atractivo y que resuma lo que el espectador encontrará en tu canal.\n    *   **Puedes incluir algunas palabras clave de forma natural** dentro del texto (como lo hice en la descripción sugerida anteriormente), pero sin que parezca una lista forzada.\n    *   **Puedes usar hashtags en la descripción** si quieres, pero su impacto es menor en la descripción del canal que en las descripciones de vídeos individuales. Si los usas, que sean relevantes y estén integrados de forma orgánica.\n\n**En resumen:**\n\n*   **Palabras clave del canal:** Se configuran en una sección específica de YouTube Studio, separadas por comas.\n*   **Descripción del canal:** Es un párrafo descriptivo donde puedes integrar palabras clave de forma natural y, opcionalmente, algunos hashtags.\n\n¿Queda claro? ¿Quieres que revisemos el guion del primer vídeo ahora?",
       "tool_calls": null,
       "created_at": "2026-10-20T19:56:31.076196+00:00"
+    },
+    {
+      "id": 558,
+      "role": "user",
+      "content": "acepta 500 caracteres, no podemos aprovechar poniendo más tags? analiza los tags del canal en inglés de @avalanth, es el canal que he cogido como referencia, dejo en tu criterio mezclar palabras inglesas y españolas, o sólo españolas",
+      "tool_calls": null,
+      "created_at": "2026-10-20T19:59:37.995650+00:00"
+    },
+    {
+      "id": 559,
+      "role": "assistant",
+      "content": "Analicé el canal de referencia **@avalanth** (*6.5k suscriptores y 2.9M de vistas totales*). Su estrategia de contenido está enfocada en la combinación de desastres naturales (*tornadoes, hurricanes, earthquakes, volcanoes*) y entornos extremos explicados con tono documental y análisis de eventos reales.\n\n---\n\n### Criterio sobre los Tags: ¿Mezclar Español e Inglés?\n\n**SÍ, es muy conveniente mezclar ambos idiomas (75% Español / 25% Inglés e Híbridos).**\n\n1. **Modelos Vectoriales de YouTube (Google Brain):** El algoritmo de sugeridos no solo lee el idioma del audio, sino que clasifica los canales en *clusters conceptuales*. Si colocas términos globales como `natural disasters` o `disaster breakdown`, le estás indicando a YouTube que tu canal pertenece al mismo clúster de audiencia que canales como **Avalanth**, **RealLifeLore** o **Disaster Breakdown**.\n2. **Audiencia Bilingüe y Búsquedas Globales:** Términos como `tsunami`, `supervolcano`, `tornado` o `megatsunami` son idénticos o casi idénticos en ambos idiomas. Además, un espectador hispanohablante que consume contenido de *Avalanth* en inglés verá tu canal en la barra de \"Sugeridos\" gracias a este solapamiento semántico.\n\n---\n\n### Bloque Optimizado de Palabras Clave del Canal (456 / 500 caracteres)\n\nCopia y pega el siguiente bloque de texto en **YouTube Studio > Configuración > Canal > Información básica > Palabras clave**. Al pegarlo, YouTube convertirá cada término separado por comas en una etiqueta individual.\n\n```text\ndr disaster, desastres naturales, catastrofes naturales, terremotos, tsunamis, volcanes, tornados, supervolcano, megatsunami, eventos extremos, ciencia de desastres, documentales de desastres, sobrevivencia, historias reales, riesgos globales, natural disasters, extreme weather, disaster breakdown, supervolcanes, megaestructuras, huracanes, megatormentas, documentales en espanol, avalanchas, meteorologia extrema, catastrofes\n```\n\n---\n\n### Resumen del Reparto de la Batería de Tags:\n\n* **Marca personal:** `dr disaster`\n* **Núcleo temático (Español):** `desastres naturales`, `catastrofes naturales`, `terremotos`, `tsunamis`, `volcanes`, `tornados`, `eventos extremos`, `sobrevivencia`, `historias reales`, `riesgos globales`, `huracanes`, `megatormentas`, `avalanchas`, `meteorologia extrema`\n* **Formatos de búsqueda:** `ciencia de desastres`, `documentales de desastres`, `documentales en espanol`\n* **Términos puente / Clúster de Avalanth (Inglés/Universal):** `natural disasters`, `extreme weather`, `disaster breakdown`, `supervolcano`, `megatsunami`, `supervolcanes`, `megaestructuras`\n\n---\n\n### Siguiente Paso\nCon el canal y las palabras clave configuradas, pasamos al **Vídeo 01**. ¿Quieres que redacte el guion completo o prefieres que ajustemos primero el título y el prompt de la miniatura según los archivos `seo_01.docx`?",
+      "tool_calls": null,
+      "created_at": "2026-10-20T20:00:10.221822+00:00"
     }
   ],
   "notes": [

@@ -3,7 +3,7 @@
   "title": "este es mi nuevo canal drdisaste",
   "folder_id": "folder-c6fc8f45",
   "created_at": "2026-10-20T19:51:04.532787+00:00",
-  "updated_at": "2026-10-20T19:52:52.928592+00:00",
+  "updated_at": "2026-10-20T19:56:31.076196+00:00",
   "folder_name": "@drDisaster",
   "folder_color": "#F59E0B",
   "messages": [
@@ -20,6 +20,20 @@
       "content": "Para lanzar **@drdisaster_oficial** con una base sólida que maximice el CTR y la retención desde el día 1, he analizado los archivos SEO proporcionados y consolidado la configuración estratégica.\n\nHe creado una **nota de sesión** con esta estrategia y los puntos clave de configuración. A continuación, el detalle:\n\n---\n\n### 1. Configuración del Canal (Branding y SEO)\n\n*   **Nombre del canal:** Dr. Disaster\n*   **Handle:** `@drdisaster_oficial`\n*   **Descripción del canal (Optimización SEO):**\n    > \"Bienvenidos a Dr. Disaster. Analizamos los eventos más catastróficos, riesgos globales y fenómenos naturales que han moldeado nuestro mundo. Aquí exploramos la ciencia detrás del desastre, la historia oculta tras las grandes tragedias y las lecciones de supervivencia esenciales para el futuro. Suscríbete para documentales profundos, análisis técnicos y una perspectiva única sobre los peligros que acechan a la humanidad. El conocimiento es tu mejor herramienta de supervivencia.\"\n*   **Palabras clave sugeridas para la configuración de canal:**\n    > desastres, supervivencia, riesgos globales, catástrofes naturales, análisis documental, ciencia de desastres, historia, riesgos planetarios, Dr. Disaster.\n\n---\n\n### 2. Estructura de Lanzamiento (Los 3 primeros vídeos)\n\nBasado en los archivos SEO, he estructurado los títulos y ganchos para maximizar la curiosidad:\n\n| Vídeo | Título Sugerido | Enfoque de Miniatura |\n| :--- | :--- | :--- |\n| **01** | *Lo Que Nunca Te Dijeron Sobre los Rayos* | Rayo impactando dramáticamente, texto blanco y amarillo. |\n| **02** | *El Riesgo Invisible: ¿Estamos Preparados?* | Imagen satelital de tormenta/desastre, alto contraste. |\n| **03** | *Cuando la Tierra se Abre: Análisis de Terremotos* | Fractura geológica masiva, iluminación dramática. |\n\n---\n\n### 3. Checklist de Configuración (Protocolo YieldChat)\n\nPara que el algoritmo identifique tu audiencia rápidamente, aplica esto en `YouTube Studio`:\n\n1.  **Configuración Avanzada:** Establece el idioma del vídeo en \"Español\".\n2.  **Categoría:** \"Educación\" o \"Ciencia y tecnología\".\n3.  **Enlaces:** Añade un enlace a una red social o web (incluso si está en construcción) para dar autoridad al canal.\n4.  **Regla de Oro:** **No publiques los 3 vídeos el mismo día.** Publica uno cada 48-72 horas. Esto permite que el algoritmo de YouTube pruebe cada vídeo con una audiencia distinta sin canibalizar el tráfico.\n\n---\n\n### 4. Próximos Pasos (Acción Inmediata)\n\nPara proceder con la producción de los guiones y las miniaturas de estos 3 vídeos, necesito que me confirmes:\n\n1.  **Voz:** ¿Qué configuración de voz (ElevenLabs) planeas usar? (Si no tienes una, puedo recomendarte el tono ideal para este nicho: *maduro, serio, con autoridad*).\n2.  **Estilo Visual:** ¿Quieres que apliquemos la estética de \"documental de archivo con retoque moderno\" o prefieres un estilo más \"cinematográfico/oscuridad\"?\n\n**Nota:** He guardado esta estrategia en tu panel lateral como `Estrategia de Lanzamiento: @drdisaster_oficial`.\n\n¿Deseas que empecemos a redactar el guion del primer vídeo basándome en el archivo `seo_01.docx`?",
       "tool_calls": null,
       "created_at": "2026-10-20T19:52:52.928592+00:00"
+    },
+    {
+      "id": 556,
+      "role": "user",
+      "content": "los tags los pongo en la descripción del canal? van con # o separado con coma",
+      "tool_calls": null,
+      "created_at": "2026-10-20T19:56:27.567953+00:00"
+    },
+    {
+      "id": 557,
+      "role": "assistant",
+      "content": "Excelente pregunta. Es crucial entender la diferencia entre las palabras clave para el canal y los hashtags en la descripción.\n\n1.  **Palabras Clave del Canal (Keywords):**\n    *   **No van en la descripción del canal.** YouTube tiene una sección específica para esto en `YouTube Studio > Configuración > Canal > Información básica > Palabras clave`.\n    *   **Se introducen separadas por comas**, sin hashtags. Por ejemplo: `desastres, supervivencia, riesgos globales, catástrofes naturales, análisis documental, ciencia de desastres, historia, riesgos planetarios, Dr. Disaster`.\n    *   Estas palabras clave ayudan a YouTube a entender la temática general de tu canal para emparejarte con audiencias relevantes en búsquedas y sugerencias.\n\n2.  **Descripción del Canal:**\n    *   Esta sección debe ser un **texto en lenguaje natural**, atractivo y que resuma lo que el espectador encontrará en tu canal.\n    *   **Puedes incluir algunas palabras clave de forma natural** dentro del texto (como lo hice en la descripción sugerida anteriormente), pero sin que parezca una lista forzada.\n    *   **Puedes usar hashtags en la descripción** si quieres, pero su impacto es menor en la descripción del canal que en las descripciones de vídeos individuales. Si los usas, que sean relevantes y estén integrados de forma orgánica.\n\n**En resumen:**\n\n*   **Palabras clave del canal:** Se configuran en una sección específica de YouTube Studio, separadas por comas.\n*   **Descripción del canal:** Es un párrafo descriptivo donde puedes integrar palabras clave de forma natural y, opcionalmente, algunos hashtags.\n\n¿Queda claro? ¿Quieres que revisemos el guion del primer vídeo ahora?",
+      "tool_calls": null,
+      "created_at": "2026-10-20T19:56:31.076196+00:00"
     }
   ],
   "notes": [

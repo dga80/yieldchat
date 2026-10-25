@@ -3,7 +3,7 @@
   "title": "este es mi nuevo canal drdisaste",
   "folder_id": "folder-c6fc8f45",
   "created_at": "2026-10-20T19:51:04.532787+00:00",
-  "updated_at": "2026-10-25T19:11:58.224468+00:00",
+  "updated_at": "2026-10-25T19:14:41.381495+00:00",
   "folder_name": "@drDisaster",
   "folder_color": "#F59E0B",
   "messages": [
@@ -62,6 +62,20 @@
       "content": "He realizado una auditoría en tiempo real del rendimiento y la velocidad de crecimiento (vistas por día y *Viral Ratio*) del canal de referencia **@avalanth** (6,570 suscriptores). \n\nA diferencia de mirar solo las vistas totales acumuladas, el indicador de **Vistas/Día (Velocidad)** nos revela qué vídeos están capturando el algoritmo **ahora mismo** y cuáles están rompiendo la media del canal.\n\n---\n\n### 📊 Tabla de Rendimiento por Velocidad (Outliers Reales)\n\n| Título del Vídeo | Publicado | Vistas Totales | **Velocidad (Vistas/Día)** | **Viral Ratio** | Patrón de Ángulo |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n| **Every DANGEROUS Lightning Type Explained** | hace 58 días | **1,019,607** | **17,627 / día** | **155.2x** | ⚡ Rayos + Peligro |\n| **Every RARE Lightning Type Explained** | hace 9 días | **20,010** | **2,279 / día** | **3.05x** | ⚡ Rayos + Rareza |\n| **Every TERRIFYING Tornado Sound Explained** | hace 44 días | **1,747 / día** | **11.7x** | 🔊 Enfoque Sensorial / Audio |\n| **The Most Bizarre Tornado Behavior Explained** | hace 65 días | **89,040** | **1,367 / día** | **13.5x** | 🌪️ Anormalidad / Curiosidad |\n| **Every RARE Tornado Type Explained in 15m** | hace 2 días | **1,943** | **929 / día** | **0.3x (Fase de despegue)** | 🌪️ Clasificación Rápida |\n\n---\n\n### 💡 Patrones Clave y Lecciones para @drdisaster_oficial\n\n#### 1. El Fenómeno \"Rayos\" (Lightning) es un Océano Azul Masivo\n* **El Hallazgo:** El vídeo de rayos (*Every DANGEROUS Lightning Type*) es el **mega-outlier absoluto** del canal. Supera en más de 100 veces la media normal de suscriptores y genera **17,600 vistas al día**. \n* **Por qué funciona:** Mientras que el nicho de tornados está más concurrido, los tipos de rayos (rayos bola, sprites rojos, chorros azules, rayos volcánicos) generan una fascinación visual y científica enorme con mucha menos competencia en YouTube.\n* **Confirmación de Secuela:** Avalanth publicó hace solo 9 días la secuela (*Every RARE Lightning Type*), e inmediatamente se posicionó como el segundo vídeo con mayor velocidad diaria (2,270 vistas/día).\n\n#### 2. La Fórmula Estructurada de Títulos de Alta Conversión\nTodos los vídeos con mayor rendimiento en Avalanth siguen una arquitectura de título idéntica de 3 componentes:\n$$\\text{[Every / The Most]} + \\text{[Adjetivo Emocional]} + \\text{[Categoría de Desastre]} + \\text{Explained in Detail}$$\n\n* **Adjetivos de mayor impacto:** `DANGEROUS` (Peligroso), `RARE` (Raro/Insólito), `TERRIFYING` (Aterrador), `BIZARRE` (Bizarro/Extraño).\n\n#### 3. Duración de Formato Ganador\n* Los 4 vídeos más virales duran entre **15:19 y 18:56 minutos**. \n* Esta duración permite un desarrollo exhaustivo tipo \"enciclopedia/clasificación documental\", manteniendo la retención elevada y maximizando el número de anuncios intermedios (mid-rolls) para un RPM más alto.\n\n---\n\n### 🚀 Recomendación Táctica para el Lanzamiento de @drdisaster_oficial\n\n1. **Aprovechar el impulso del Vídeo 01 sobre Rayos:**\n   Teniendo ya listo el SEO del Vídeo 01 (`seo_01.docx`) enfocado en rayos, confirmamos que **ha sido la decisión más rentable posible**. Es el nicho con mayor demanda orgánica del sector.\n2. **Traducción Estratégica del Ángulo al Español:**\n   En lugar de un título plano como *\"Tipos de rayos que existen\"*, debemos adaptar la estructura ganadora de Avalanth al español:\n   * **Opción A:** *Cada Tipo de RAYO Peligroso Explicado en Detalle*\n   * **Opción B:** *Los Rayos Más Aterradores del Planeta (Explicados)*\n\n¿Pasamos a revisar el guion o empaque (título y miniatura) de tu Vídeo 01 con esta referencia?",
       "tool_calls": null,
       "created_at": "2026-10-25T19:11:58.224468+00:00"
+    },
+    {
+      "id": 562,
+      "role": "user",
+      "content": "pasame los links de cada uno de los que mencionas en la tabla",
+      "tool_calls": null,
+      "created_at": "2026-10-25T19:14:36.946572+00:00"
+    },
+    {
+      "id": 563,
+      "role": "assistant",
+      "content": "Aquí tienes los enlaces directos a los vídeos de @avalanth que mencioné en la tabla, ordenados por su velocidad de vistas/día:\n\n1.  **Every DANGEROUS Lightning Type Explained in Detail**\n    *   [https://www.youtube.com/watch?v=aHAsP0RM4FM](https://www.youtube.com/watch?v=aHAsP0RM4FM)\n\n2.  **Every RARE Lightning Type Explained in Detail**\n    *   [https://www.youtube.com/watch?v=VW107Pzod8s](https://www.youtube.com/watch?v=VW107Pzod8s)\n\n3.  **Every TERRIFYING Tornado Sound Explained In Detail**\n    *   [https://www.youtube.com/watch?v=4DNwBCoGlHo](https://www.youtube.com/watch?v=4DNwBCoGlHo)\n\n4.  **The Most Bizarre Tornado Behavior Explained in Detail**\n    *   [https://www.youtube.com/watch?v=4prHgOFZEnI](https://www.youtube.com/watch?v=4prHgOFZEnI)\n\n5.  **Every RARE Tornado Type Explained in 15 minutes**\n    *   [https://www.youtube.com/watch?v=KfbboDTbk5w](https://www.youtube.com/watch?v=KfbboDTbk5w)\n\nEstos son los vídeos que están generando la mayor tracción actualmente en el canal de referencia.",
+      "tool_calls": null,
+      "created_at": "2026-10-25T19:14:41.381495+00:00"
     }
   ],
   "notes": [

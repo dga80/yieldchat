@@ -3,7 +3,7 @@
   "title": "este es mi nuevo canal drdisaste",
   "folder_id": "folder-c6fc8f45",
   "created_at": "2026-10-20T19:51:04.532787+00:00",
-  "updated_at": "2026-10-25T19:14:41.381495+00:00",
+  "updated_at": "2026-10-27T20:22:09.038333+00:00",
   "folder_name": "@drDisaster",
   "folder_color": "#F59E0B",
   "messages": [
@@ -76,6 +76,20 @@
       "content": "Aquí tienes los enlaces directos a los vídeos de @avalanth que mencioné en la tabla, ordenados por su velocidad de vistas/día:\n\n1.  **Every DANGEROUS Lightning Type Explained in Detail**\n    *   [https://www.youtube.com/watch?v=aHAsP0RM4FM](https://www.youtube.com/watch?v=aHAsP0RM4FM)\n\n2.  **Every RARE Lightning Type Explained in Detail**\n    *   [https://www.youtube.com/watch?v=VW107Pzod8s](https://www.youtube.com/watch?v=VW107Pzod8s)\n\n3.  **Every TERRIFYING Tornado Sound Explained In Detail**\n    *   [https://www.youtube.com/watch?v=4DNwBCoGlHo](https://www.youtube.com/watch?v=4DNwBCoGlHo)\n\n4.  **The Most Bizarre Tornado Behavior Explained in Detail**\n    *   [https://www.youtube.com/watch?v=4prHgOFZEnI](https://www.youtube.com/watch?v=4prHgOFZEnI)\n\n5.  **Every RARE Tornado Type Explained in 15 minutes**\n    *   [https://www.youtube.com/watch?v=KfbboDTbk5w](https://www.youtube.com/watch?v=KfbboDTbk5w)\n\nEstos son los vídeos que están generando la mayor tracción actualmente en el canal de referencia.",
       "tool_calls": null,
       "created_at": "2026-10-25T19:14:41.381495+00:00"
+    },
+    {
+      "id": 564,
+      "role": "user",
+      "content": "del 3er video, dame el seo: titulo youtube, titulo miniatura, titulo archivo, descripcion, tags",
+      "tool_calls": null,
+      "created_at": "2026-10-27T20:21:59.216323+00:00"
+    },
+    {
+      "id": 565,
+      "role": "assistant",
+      "content": "Aquí tienes la optimización completa de SEO en español para la adaptación de este outlier para **@drdisaster_oficial**, basada en el concepto del 3er vídeo de Avalanth (*Every TERRIFYING Tornado Sound Explained In Detail*):\n\n---\n\n### 1. Título de YouTube (CTR y Curiosidad)\n* **Opción Principal (Recomendada):** `Cada SONIDO Aterrorizante de Tornado Explicado en Detalle`\n* **Opción Alternativa:** `Los Sonidos Más ATERRADORES de los Tornados (Y Qué Significan)`\n\n---\n\n### 2. Texto para la Miniatura (Packaging Danilov)\n* **Línea 1 (Texto en Blanco):** `SONIDOS DEL`\n* **Línea 2 (Texto en Amarillo #FFD700):** `APOCALIPSIS`\n*(Composición visual recomendada: Espectrograma de audio o tornado oscuro en primer plano con espectador/radar de fondo).*\n\n---\n\n### 3. Nombre del Archivo de Vídeo (SEO On-File)\n> `cada_sonido_aterrador_de_tornado_explicado_dr_disaster_documental.mp4`\n\n*(Subir el archivo con este nombre exacto ayuda a los algoritmos de procesamiento de vídeo de Google a categorizar la temática antes de la publicación).*\n\n---\n\n### 4. Descripción del Vídeo\n\n```text\n¿Qué se siente al escuchar un tornado a solo unos metros de distancia? La mayoría describe un estruendo similar al de un tren de carga infinito, pero la ciencia revela que los tornados emiten una gama de sonidos aún más extraños y aterradores: desde silbidos ensordecedores hasta infrasonidos imperceptibles que provocan náuseas y pánico visceral en el cuerpo humano.\n\nEn este documental de Dr. Disaster, analizamos y explicamos en detalle los sonidos más aterradores grabados durante las tormentas más devastadoras de la historia, qué los produce y qué significan.\n\n⏱️ CAPÍTULOS DEL VÍDEO:\n00:00 El mito del \"Tren de Carga\"\n02:15 El Gemido de Alta Frecuencia (Viento Estructurado)\n05:30 Infrasonido: La frecuencia que causa pánico\n09:10 El Cañón Volcánico (Tornados F5/EF5)\n13:40 ¿Por qué el silencio previo es lo más peligroso?\n16:20 Lecciones de supervivencia auditiva\n\n🔔 Suscríbete a Dr. Disaster para descubrir la ciencia y la historia tras los desastres más extremos del planeta.\n💬 ¿Alguna vez has presenciado una tormenta con un sonido inusual? Cuéntanos en los comentarios desde qué país o ciudad nos escuchas.\n\n#Tornados #DesastresNaturales #DrDisaster #Ciencia #Supervivencia\n```\n\n---\n\n### 5. Tags del Vídeo (Separadas por comas)\n\nCopia y pega este bloque en el apartado de etiquetas del vídeo en YouTube Studio:\n\n```text\nsonido de tornado, sonidos aterradores de tornados, tornado sound, como suena un tornado, tornados reales, ruidos de desastres naturales, tornado ef5 sonido, ciencia de tornados, dr disaster, dr disaster oficial, tornados aterradores, documentales de desastres, cazadores de tormentas, supercélula, aviación y meteorología, meteorología extrema, audio de tornado real, infrasonido tornado, tornado sirens, sirenas de tornado, desastres naturales explicados\n```",
+      "tool_calls": null,
+      "created_at": "2026-10-27T20:22:09.038333+00:00"
     }
   ],
   "notes": [
